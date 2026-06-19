@@ -6,6 +6,7 @@ import { IndexStore } from '../engine/index-store.js';
 import { InvocationCounter } from '../adoption/counter.js';
 import { runFindDef, findDefInputShape } from '../tools/find-def.js';
 import { runFindRefs, findRefsInputShape } from '../tools/find-refs.js';
+import { runDepGraph, depGraphInputShape } from '../tools/dep-graph.js';
 import { log, logError } from '../log.js';
 
 const VERSION = '0.0.0';
@@ -26,9 +27,19 @@ const INSTRUCTIONS = [
   're-exports, so it finds callers grep misses and excludes same-named symbols in unrelated files —',
   'much more precise than grepping a name. Prefer it for "what uses X?" / "who calls X?".',
   '',
+  'Use dep_graph to see structure: the most depended-on files (hubs) with no focus, or a file\'s',
+  'neighborhood (what it imports / what imports it) with a focus. Prefer it over reading imports by hand.',
+  '',
   "Every result is labeled with a precision tier so you can calibrate trust (currently",
   "'tree-sitter': structural and high-signal, but not compiler-exact).",
 ].join('\n');
+
+const DEP_GRAPH_DESCRIPTION = [
+  'Show the module/file dependency graph from real import edges (resolving aliases + barrels).',
+  'Use to understand structure: with no focus it returns the most depended-on files (hubs) and a',
+  'module summary; with a focus file it returns that file\'s neighborhood — what it imports and what',
+  'imports it. Optionally a directory prefix focus, or a neighborhood depth (1-2). Token-bounded.',
+].join(' ');
 
 const FIND_REFS_DESCRIPTION = [
   'Find where a symbol is referenced (its callers/consumers), following tsconfig path aliases and',
@@ -97,6 +108,28 @@ export async function serve(root: string): Promise<void> {
         logError('find_refs failed:', err);
         return {
           content: [{ type: 'text', text: `find_refs error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'dep_graph',
+    {
+      title: 'Module dependency graph',
+      description: DEP_GRAPH_DESCRIPTION,
+      inputSchema: depGraphInputShape,
+    },
+    async (args) => {
+      void counter.record('dep_graph', args);
+      try {
+        const { text } = await runDepGraph(store, root, args);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('dep_graph failed:', err);
+        return {
+          content: [{ type: 'text', text: `dep_graph error: ${err instanceof Error ? err.message : String(err)}` }],
           isError: true,
         };
       }
