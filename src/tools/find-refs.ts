@@ -81,7 +81,8 @@ export async function runFindRefs(
   }
 
   records.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
-  return { records, text: format(args.symbol, args.pathGlob, defs.length, importerCount, records) };
+  const kinds = new Set(defs.map((d) => d.kind));
+  return { records, text: format(args.symbol, args.pathGlob, defs.length, importerCount, records, kinds) };
 }
 
 function format(
@@ -90,10 +91,18 @@ function format(
   defCount: number,
   importerCount: number,
   records: RefRecord[],
+  kinds: Set<string>,
 ): string {
   const scope = pathGlob ? ` within \`${pathGlob}\`` : '';
   if (records.length === 0) {
-    return `No references to \`${symbol}\`${scope} found via the import graph (it is defined but appears unused, or only referenced through namespace/default imports arcscope doesn't resolve).`;
+    // find_refs is import-resolution based, so a symbol that is never imported by
+    // name (a method/object-property invoked via member access, used only in its
+    // own file, or reached via namespace/default import) yields nothing. Say so.
+    const memberHint = kinds.has('method') ? ` Since \`${symbol}\` is (or includes) a method, it is invoked via member access (\`obj.${symbol}()\`) — find_refs its declaring class/interface, or grep \`.${symbol}\`.` : '';
+    return (
+      `No import-resolved references to \`${symbol}\`${scope} (${defCount} definition${defCount === 1 ? '' : 's'}). find_refs follows imports, so it does not find a symbol referenced only via member access, used only within its own file, or reached through namespace/default imports.` +
+      memberHint
+    );
   }
   const defNote = defCount > 1 ? ` (${defCount} definitions share this name; refs are split by the one they resolve to)` : '';
   const head = `${records.length} reference${records.length === 1 ? '' : 's'} to \`${symbol}\`${scope}${defNote} — resolved through imports/barrels (precision: tree-sitter):`;

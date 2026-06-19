@@ -49,8 +49,11 @@ export class ModuleResolver {
 
   private tryCandidate(p: string): string | null {
     if (this.fileExists(p)) return p; // tsconfig targets often already carry .ts
-    for (const ext of EXTS) if (this.fileExists(p + ext)) return p + ext;
-    for (const ext of EXTS) if (this.fileExists(`${p}/index${ext}`)) return `${p}/index${ext}`;
+    // NodeNext writes a './x.js' specifier for a './x.ts' source — strip the JS
+    // extension so the candidate loop can find the real TS/JS file.
+    const base = p.replace(/\.[cm]?jsx?$/, '');
+    for (const ext of EXTS) if (this.fileExists(base + ext)) return base + ext;
+    for (const ext of EXTS) if (this.fileExists(`${base}/index${ext}`)) return `${base}/index${ext}`;
     return null;
   }
 

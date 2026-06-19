@@ -34,6 +34,7 @@ test('resolves relative paths, tsconfig aliases, and rejects external', () => {
     const r = new ModuleResolver(dir, (rel) => files.has(rel));
 
     assert.equal(r.resolve('src/a/b.ts', './helper'), 'src/a/helper.ts'); // relative, extension added
+    assert.equal(r.resolve('src/a/b.ts', './helper.js'), 'src/a/helper.ts'); // NodeNext .js specifier -> .ts
     assert.equal(r.resolve('src/a/b.ts', './sub'), 'src/a/sub/index.ts'); // relative dir -> index
     assert.equal(r.resolve('src/a/b.ts', '@app/utils'), 'libs/utils/src/index.ts'); // exact alias
     assert.equal(r.resolve('src/a/b.ts', '@app/domain'), 'libs/domain/src/index.ts'); // wildcard alias
