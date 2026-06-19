@@ -2,9 +2,10 @@ import { readFileSync, statSync } from 'node:fs';
 import { extname, relative, sep } from 'node:path';
 import { discoverFiles } from './discover.js';
 import { extractDefs } from './extract.js';
+import { extractImports } from './imports.js';
 import type { GrammarRegistry } from './grammar-registry.js';
 import { matchGlob } from './glob.js';
-import type { DefRecord, FileEntry } from './types.js';
+import type { DefRecord, FileEntry, ImportEdge } from './types.js';
 
 export interface SyncStats {
   fileCount: number;
@@ -23,6 +24,7 @@ export interface SyncStats {
 export class IndexStore {
   private readonly defs = new Map<string, DefRecord[]>();
   private readonly files = new Map<string, FileEntry>(); // absolute path -> entry
+  private readonly edges = new Map<string, ImportEdge[]>(); // absolute path -> import/re-export edges
 
   constructor(
     private readonly root: string,
@@ -37,6 +39,27 @@ export class IndexStore {
     let n = 0;
     for (const arr of this.defs.values()) n += arr.length;
     return n;
+  }
+
+  get edgeCount(): number {
+    let n = 0;
+    for (const arr of this.edges.values()) n += arr.length;
+    return n;
+  }
+
+  // All import/re-export edges across the repo (used by the import graph).
+  allEdges(): ImportEdge[] {
+    const out: ImportEdge[] = [];
+    for (const arr of this.edges.values()) out.push(...arr);
+    return out;
+  }
+
+  // The set of indexed files, relative-posix — used to confirm a resolved
+  // module specifier actually points at a file arcscope knows about.
+  relFileSet(): Set<string> {
+    const out = new Set<string>();
+    for (const abs of this.files.keys()) out.add(this.relPath(abs));
+    return out;
   }
 
   async sync(): Promise<SyncStats> {
@@ -123,19 +146,28 @@ export class IndexStore {
       return;
     }
     const parser = await this.registry.ensureInit();
+    parser.setLanguage(grammar.language);
+    const tree = parser.parse(source);
+    if (!tree) return;
     const rel = this.relPath(abs);
-    const records = extractDefs(parser, grammar.language, grammar.query, rel, source);
-    const symbols = new Set<string>();
-    for (const r of records) {
-      let arr = this.defs.get(r.symbol);
-      if (!arr) {
-        arr = [];
-        this.defs.set(r.symbol, arr);
+    try {
+      const records = extractDefs(grammar.query, rel, tree);
+      const fileEdges = extractImports(rel, tree);
+      const symbols = new Set<string>();
+      for (const r of records) {
+        let arr = this.defs.get(r.symbol);
+        if (!arr) {
+          arr = [];
+          this.defs.set(r.symbol, arr);
+        }
+        arr.push(r);
+        symbols.add(r.symbol);
       }
-      arr.push(r);
-      symbols.add(r.symbol);
+      if (fileEdges.length > 0) this.edges.set(abs, fileEdges);
+      this.files.set(abs, { mtimeMs, size, symbols: [...symbols] });
+    } finally {
+      tree.delete();
     }
-    this.files.set(abs, { mtimeMs, size, symbols: [...symbols] });
   }
 
   private evict(abs: string): void {
@@ -149,6 +181,7 @@ export class IndexStore {
       if (kept.length) this.defs.set(sym, kept);
       else this.defs.delete(sym);
     }
+    this.edges.delete(abs);
     this.files.delete(abs);
   }
 
