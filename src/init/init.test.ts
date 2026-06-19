@@ -47,15 +47,31 @@ test('writeMcpJson recovers from malformed existing json', () => {
   }
 });
 
-test('ensureGitignore adds .arcscope/ once and is idempotent', () => {
+test('ensureGitignore ignores the cache but commits vocab.yaml, idempotently', () => {
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-init-'));
   try {
     const gi = join(dir, '.gitignore');
-    assert.equal(ensureGitignore(dir), true); // created
-    assert.match(readFileSync(gi, 'utf8'), /^\.arcscope\/$/m);
-    assert.equal(ensureGitignore(dir), false); // already present -> no-op
-    const count = readFileSync(gi, 'utf8').split('\n').filter((l) => l.trim() === '.arcscope/').length;
+    assert.equal(ensureGitignore(dir), true);
+    const c = readFileSync(gi, 'utf8');
+    assert.match(c, /^\.arcscope\/\*$/m);
+    assert.match(c, /^!\.arcscope\/vocab\.yaml$/m);
+    assert.equal(ensureGitignore(dir), false); // idempotent
+    const count = readFileSync(gi, 'utf8').split('\n').filter((l) => l.trim() === '.arcscope/*').length;
     assert.equal(count, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('ensureGitignore upgrades an old wholesale .arcscope/ ignore', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-init-'));
+  try {
+    writeFileSync(join(dir, '.gitignore'), 'node_modules/\n.arcscope/\n');
+    assert.equal(ensureGitignore(dir), true);
+    const c = readFileSync(join(dir, '.gitignore'), 'utf8');
+    assert.ok(!c.split('\n').some((l) => l.trim() === '.arcscope/'), 'old wholesale ignore removed');
+    assert.match(c, /^\.arcscope\/\*$/m);
+    assert.match(c, /node_modules\//); // unrelated entries preserved
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

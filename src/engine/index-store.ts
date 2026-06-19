@@ -47,6 +47,13 @@ export class IndexStore {
     return n;
   }
 
+  // All definitions across the repo (used by the vocabulary resolver).
+  allDefs(): DefRecord[] {
+    const out: DefRecord[] = [];
+    for (const arr of this.defs.values()) out.push(...arr);
+    return out;
+  }
+
   // All import/re-export edges across the repo (used by the import graph).
   allEdges(): ImportEdge[] {
     const out: ImportEdge[] = [];

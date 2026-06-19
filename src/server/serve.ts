@@ -7,6 +7,8 @@ import { InvocationCounter } from '../adoption/counter.js';
 import { runFindDef, findDefInputShape } from '../tools/find-def.js';
 import { runFindRefs, findRefsInputShape } from '../tools/find-refs.js';
 import { runDepGraph, depGraphInputShape } from '../tools/dep-graph.js';
+import { runArchList } from '../tools/arch-list.js';
+import { runArchQuery, archQueryInputShape } from '../tools/arch-query.js';
 import { log, logError } from '../log.js';
 
 const VERSION = '0.0.0';
@@ -30,9 +32,27 @@ const INSTRUCTIONS = [
   'Use dep_graph to see structure: the most depended-on files (hubs) with no focus, or a file\'s',
   'neighborhood (what it imports / what imports it) with a focus. Prefer it over reading imports by hand.',
   '',
+  "Use arch_list to learn this repo's named architecture concepts (its committed vocabulary), and arch_query",
+  'to resolve one live to its current code locations. These answer concept-level questions ("the repository',
+  'tokens", "the action pipeline") that grep and docs can\'t — recomputed every call, so they never go stale.',
+  '',
   "Every result is labeled with a precision tier so you can calibrate trust (currently",
   "'tree-sitter': structural and high-signal, but not compiler-exact).",
 ].join('\n');
+
+const ARCH_LIST_DESCRIPTION = [
+  "List this repo's declared architecture concepts — named, repo-committed ideas (e.g. \"the repository tokens\",",
+  '"the editor state pipeline", "the plugin registry") bound to live code locators. Use at the START of working',
+  'in an unfamiliar codebase to learn its vocabulary, or when the user names an architectural concept. Each is',
+  'answered live against current code (never stale prose).',
+].join(' ');
+
+const ARCH_QUERY_DESCRIPTION = [
+  'Resolve one named architecture concept to its live code locations. Use when you need to understand or change a',
+  'declared concept (from arch_list) — it recomputes the locator against the current tree and returns the exact',
+  'files/symbols (a staged concept comes back as an ordered pipeline). More reliable than reading prose docs,',
+  'which silently rot; this is recomputed every call and flags drift.',
+].join(' ');
 
 const DEP_GRAPH_DESCRIPTION = [
   'Show the module/file dependency graph from real import edges (resolving aliases + barrels).',
@@ -131,6 +151,42 @@ export async function serve(root: string): Promise<void> {
         logError('dep_graph failed:', err);
         return {
           content: [{ type: 'text', text: `dep_graph error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'arch_list',
+    { title: 'List architecture concepts', description: ARCH_LIST_DESCRIPTION },
+    async () => {
+      void counter.record('arch_list', {});
+      try {
+        const { text } = await runArchList(store, root);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('arch_list failed:', err);
+        return {
+          content: [{ type: 'text', text: `arch_list error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'arch_query',
+    { title: 'Resolve an architecture concept', description: ARCH_QUERY_DESCRIPTION, inputSchema: archQueryInputShape },
+    async (args) => {
+      void counter.record('arch_query', args);
+      try {
+        const { text } = await runArchQuery(store, root, args);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('arch_query failed:', err);
+        return {
+          content: [{ type: 'text', text: `arch_query error: ${err instanceof Error ? err.message : String(err)}` }],
           isError: true,
         };
       }

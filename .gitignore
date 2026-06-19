@@ -2,8 +2,9 @@ node_modules/
 dist/
 *.log
 
-# arcscope local index/usage cache (regenerable, never committed)
-.arcscope/
+# arcscope: ignore the local cache (index/usage/anchors); commit the vocabulary
+.arcscope/*
+!.arcscope/vocab.yaml
 
 # machine-specific MCP registration (regenerate with `arcscope init`)
 .mcp.json

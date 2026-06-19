@@ -51,16 +51,24 @@ export function writeMcpJson(mcpPath: string, binPath: string): void {
   writeFileSync(mcpPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 
+// Ignore the regenerable local cache (index/usage/anchors) but COMMIT the
+// vocabulary — `.arcscope/vocab.yaml` is the repo's declared knowledge and must
+// travel with it. Note: re-including a file requires ignoring `.arcscope/*` (not
+// the whole `.arcscope/` directory), so an old wholesale ignore is upgraded.
 export function ensureGitignore(root: string): boolean {
   const p = join(root, '.gitignore');
-  const content = existsSync(p) ? readFileSync(p, 'utf8') : '';
-  const ignored = content.split('\n').some((l) => {
-    const t = l.trim();
-    return t === '.arcscope/' || t === '.arcscope';
-  });
-  if (ignored) return false;
-  const prefix = content && !content.endsWith('\n') ? '\n' : '';
-  const block = `${prefix}\n# arcscope local index/usage cache (regenerable, never committed)\n.arcscope/\n`;
-  writeFileSync(p, content + block, 'utf8');
+  const lines = (existsSync(p) ? readFileSync(p, 'utf8') : '').split('\n');
+  if (lines.some((l) => l.trim() === '.arcscope/*')) return false; // already in the right shape
+  const kept = lines
+    .filter((l) => {
+      const t = l.trim();
+      return t !== '.arcscope/' && t !== '.arcscope' && !/^#\s*arcscope local index/i.test(t);
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s+$/, '');
+  const block =
+    '# arcscope: ignore the local cache (index/usage/anchors); commit the vocabulary\n.arcscope/*\n!.arcscope/vocab.yaml\n';
+  writeFileSync(p, kept ? `${kept}\n\n${block}` : block, 'utf8');
   return true;
 }
