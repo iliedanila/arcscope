@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeMcpJson, ensureGitignore } from './init.js';
+import { writeMcpJson, ensureGitignore, scaffoldVocab } from './init.js';
+import { loadVocabulary } from '../knowledge/vocab-loader.js';
 
 test('writeMcpJson writes an offline node command', () => {
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-init-'));
@@ -58,6 +59,35 @@ test('ensureGitignore ignores the cache but commits vocab.yaml, idempotently', (
     assert.equal(ensureGitignore(dir), false); // idempotent
     const count = readFileSync(gi, 'utf8').split('\n').filter((l) => l.trim() === '.arcscope/*').length;
     assert.equal(count, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('scaffoldVocab writes a starter that loads as an empty (no-fake-concept) vocab', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-init-'));
+  try {
+    const vocab = join(dir, '.arcscope', 'vocab.yaml');
+    assert.equal(scaffoldVocab(vocab), true); // creates .arcscope/ + the file
+    // The committed-on-purpose examples are commented out, so a fresh repo starts
+    // with zero concepts — and the template must still be valid, parseable YAML.
+    assert.deepEqual(loadVocabulary(vocab).concepts, []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('scaffoldVocab never clobbers an existing committed vocab', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-init-'));
+  try {
+    const vocab = join(dir, '.arcscope', 'vocab.yaml');
+    scaffoldVocab(vocab);
+    writeFileSync(vocab, 'concepts:\n  mine:\n    title: Mine\n    locators:\n      - { kind: path, glob: "src/**" }\n');
+    assert.equal(scaffoldVocab(vocab), false); // already present -> left untouched
+    assert.deepEqual(
+      loadVocabulary(vocab).concepts.map((c) => c.id),
+      ['mine'],
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
