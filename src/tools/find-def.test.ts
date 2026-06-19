@@ -42,6 +42,36 @@ test('find_def returns all matches, scopes by glob, and reports not-found', asyn
   }
 });
 
+test('on an exact miss, find_def suggests symbols with similar names', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-suggest-'));
+  try {
+    writeFileSync(
+      join(dir, 's.ts'),
+      'export class DocumentNormalizerService {}\nexport function normalizeDocument(){}',
+    );
+    const store = new IndexStore(dir, new GrammarRegistry());
+
+    // The exact-but-wrong name the agent guessed in the dogfood run.
+    const miss = await runFindDef(store, { symbol: 'DocumentNormalizer' });
+    assert.equal(miss.records.length, 0);
+    assert.ok(miss.suggestions.some((s) => s.symbol === 'DocumentNormalizerService' && s.kind === 'class'));
+    assert.match(miss.text, /similar name/);
+    assert.match(miss.text, /DocumentNormalizerService/);
+
+    // Exact match still returns the precise result with no suggestions.
+    const hit = await runFindDef(store, { symbol: 'DocumentNormalizerService' });
+    assert.equal(hit.records.length, 1);
+    assert.equal(hit.suggestions.length, 0);
+
+    // Genuinely absent with nothing similar -> plain not-found, no suggestions.
+    const gone = await runFindDef(store, { symbol: 'TotallyUnrelatedXyz' });
+    assert.equal(gone.suggestions.length, 0);
+    assert.match(gone.text, /No definition of/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('lazy re-index picks up edits without a restart', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-reindex-'));
   try {

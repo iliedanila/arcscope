@@ -45,6 +45,24 @@ test('editing a file does not leak its stale definitions', async () => {
   }
 });
 
+test('findFuzzy ranks prefix matches above substrings and excludes exact', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-fuzzy-'));
+  try {
+    writeFileSync(
+      join(dir, 'r.ts'),
+      ['export class UserRepository {}', 'export class RepositoryFactory {}', 'export class Repository {}'].join('\n'),
+    );
+    const store = new IndexStore(dir, new GrammarRegistry());
+    await store.sync();
+    const names = store.findFuzzy('Repository').map((r) => r.symbol);
+    assert.equal(names[0], 'RepositoryFactory'); // prefix match ranks first
+    assert.ok(names.includes('UserRepository')); // substring match included
+    assert.ok(!names.includes('Repository')); // the exact name is excluded
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('unchanged files are not re-indexed on a repeat sync', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-store-'));
   try {
