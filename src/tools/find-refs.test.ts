@@ -44,6 +44,23 @@ test('find_refs follows the barrel and disambiguates same-named symbols', async 
   }
 });
 
+test('find_refs handles JavaScript referencing files (JS grammar has no type_identifier)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-refs-js-'));
+  try {
+    mkdirSync(join(dir, 'lib'), { recursive: true });
+    writeFileSync(join(dir, 'lib/widget.ts'), 'export function makeWidget() {}\n');
+    // a .js importer, with a NodeNext-style '.js' specifier that maps to widget.ts
+    writeFileSync(join(dir, 'app.js'), "import { makeWidget } from './lib/widget.js';\nexport const w = makeWidget();\n");
+    const registry = new GrammarRegistry();
+    const store = new IndexStore(dir, registry);
+    const { records } = await runFindRefs(store, registry, dir, { symbol: 'makeWidget' });
+    // must not throw on the JS file, and must resolve the .js->.ts import + find the call
+    assert.ok(records.some((r) => r.file === 'app.js' && r.refKind === 'call'), 'should find makeWidget() call in app.js');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('find_refs scopes by pathGlob and reports unknown symbols', async () => {
   const dir = fixture();
   try {

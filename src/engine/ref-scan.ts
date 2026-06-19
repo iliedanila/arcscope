@@ -12,8 +12,15 @@ export interface Occurrence {
   refKind: RefKind;
 }
 
-// Compiled once per grammar — every value/type identifier node.
+// Compiled once per grammar — every value/type identifier node. `type_identifier`
+// is TS-only; the JavaScript grammar doesn't have that node, so its query must omit
+// it (else Query compilation throws "Bad node name 'type_identifier'").
 const refsQueryCache = new Map<string, Query>();
+const REFS_QUERY_SRC: Record<string, string> = {
+  typescript: '[(identifier) (type_identifier)] @id',
+  tsx: '[(identifier) (type_identifier)] @id',
+  javascript: '(identifier) @id',
+};
 
 // Parents where the matching identifier is the *name being declared*, not a
 // reference — excluded so a definition doesn't report itself.
@@ -50,7 +57,7 @@ export async function findOccurrences(
   try {
     let query = refsQueryCache.get(grammar.id);
     if (!query) {
-      query = new Query(grammar.language, '[(identifier) (type_identifier)] @id');
+      query = new Query(grammar.language, REFS_QUERY_SRC[grammar.id] ?? '(identifier) @id');
       refsQueryCache.set(grammar.id, query);
     }
     const lines = source.split('\n');
