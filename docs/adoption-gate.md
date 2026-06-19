@@ -99,4 +99,48 @@ node scripts/adoption-report.mjs <transcript.jsonl>   # a specific session
 
 It prints a chronological timeline of every search/nav call (`arcscope` vs `grep`
 vs `ToolSearch`), the totals, and the `find_def` share of `(find_def + grep)` — the
-number the kill-criterion is measured against.
+number the kill-criterion is measured against. arcscope's tools appear as
+`mcp__arcscope__find_def` / `find_refs` / `dep_graph`.
+
+---
+
+## Phase 1 tasks — find_refs + dep_graph
+
+Same protocol (fresh session, paste one at a time, never name the tool, note the
+first nav move). These are **harder to trigger than find_def** — an agent might
+reasonably grep "who uses X" or read imports by hand — so this is an honest test of
+the two tools' discoverability. All three arcscope tools are pre-authorized in the
+target repo's `.claude/settings.local.json`.
+
+Two scope notes (so expected answers are scored fairly):
+- **find_refs is import-resolution based.** It precisely handles *importable* top-level
+  symbols (functions, classes, interfaces, types, exported constants). It does **not**
+  resolve methods/object-properties referenced via member access (`obj.method()`) — it
+  says so and points to alternatives.
+- **dep_graph is degree + neighborhood, no cycle detection** in v1.
+
+### find_refs (importable symbols)
+
+| # | Prompt to paste | Expected answer |
+|---|---|---|
+| 1 | "I'm refactoring the editor state pipeline and need all the places that depend on `ActionRouterService` — which files import or instantiate it?" | 30 refs across 7 files, resolved to `action-router.service.ts` |
+| 2 | "We're thinking of removing `generateUuid` from utils and consolidating on the headless version. Where is it used before I decide?" | 37 refs across 15 files, **split across the 2 definitions** (utils vs headless) — disambiguation grep can't do |
+| 3 | "I'm adding validation and need to know everywhere `GraphReducer` is referenced." | 12 refs across 5 files, resolved to `graph.reducer.ts` |
+| 4 | "We're refactoring the plugin architecture — show me everything that references `PluginRegistryService` so I understand the blast radius." | 146 refs across 52 files, 1 def |
+
+Task 2 is the strongest grep-beater (same-named defs → grep can't tell which each
+callsite uses; find_refs splits them).
+
+### dep_graph (structure)
+
+| # | Prompt to paste | Expected answer |
+|---|---|---|
+| 5 | "Which libraries are most depended on by other modules — what are the architectural hubs?" | hubs by in-degree: `libs/domain` (417), `libs/utils` (174), `libs/data-access` (160) |
+| 6 | "I'm about to refactor `libs/features/graph`. Who depends on it — is it safe to change?" | focus that barrel → **imported-by 93** (reverse deps) + imports 132 |
+| 7 | "I need to understand the data layer: what does `libs/data-access` import, and what depends on it?" | focus → imports 26 (incl. domain), imported-by 160 |
+| 8 | "Show me how `utils` and `domain` are used across the project — are they truly foundational, low coupling?" | both are top hubs (utils 174 / domain 417 in-degree), few outgoing — foundational. (dep_graph shows degree/neighborhood, not cycles) |
+
+### Levers (already applied / available)
+1. Server `instructions` + 2. each tool's `description` now cover find_refs/dep_graph (`serve.ts`).
+3. CLAUDE.md nudge (optional backstop) — extend the §"Code navigation" block to mention
+   "who uses X → find_refs" and "what depends on what → dep_graph".
