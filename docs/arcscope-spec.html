@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>arcscope — product spec (draft)</title>
+<style>
+  :root {
+    --bg: #fbfbfa; --fg: #1c1c1e; --muted: #6b6b70; --line: #e3e3e0;
+    --accent: #2f6f4f; --accent-soft: #e7f1ea; --warn: #8a5a00; --warn-soft: #fbf3e2;
+    --cut: #8a2b2b; --cut-soft: #f7e9e9; --code-bg: #f3f3f1; --diff-bg: #eef4ff;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans);
+    line-height: 1.6; font-size: 16px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 28px 120px; }
+  header.title { border-bottom: 2px solid var(--fg); padding-bottom: 20px; margin-bottom: 8px; }
+  header.title h1 { font-size: 40px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .sub { color: var(--muted); font-size: 17px; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 14px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .meta b { color: var(--fg); font-weight: 600; }
+  h2 { font-size: 26px; margin: 52px 0 8px; padding-top: 10px; letter-spacing: -0.3px; }
+  h2 .n { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 10px; }
+  h3 { font-size: 18px; margin: 28px 0 6px; }
+  h4 { font-size: 15px; margin: 20px 0 4px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  p { margin: 10px 0; }
+  a { color: var(--accent); }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+    overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f1f1ee; font-weight: 600; border-bottom: 2px solid var(--line); }
+  tr:hover td { background: #f6f6f4; }
+  .callout { border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-left: 4px solid; }
+  .callout p:first-child { margin-top: 0; } .callout p:last-child { margin-bottom: 0; }
+  .callout.wedge { background: var(--accent-soft); border-color: var(--accent); }
+  .callout.honest { background: var(--warn-soft); border-color: var(--warn); }
+  .callout.cut { background: var(--cut-soft); border-color: var(--cut); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 2px 8px; border-radius: 20px; vertical-align: middle; }
+  .tag.v0 { background: #dcefe3; color: #1f5a3c; } .tag.v1 { background: #dde7fb; color: #274b8a; }
+  .tag.v2 { background: #efe2f7; color: #6a3a8a; } .tag.later { background: #ececec; color: #666; }
+  .lead { font-size: 18px; color: #333; }
+  .toc { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px 22px; margin: 28px 0 8px; columns: 2; column-gap: 36px; font-size: 14px; }
+  .toc a { color: var(--fg); text-decoration: none; display: block; padding: 2px 0; }
+  .toc a:hover { color: var(--accent); }
+  figure { margin: 24px 0; } figcaption { color: var(--muted); font-size: 13px; text-align: center; margin-top: 8px; }
+  .pains b { color: var(--accent); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+  .small { font-size: 13px; color: var(--muted); }
+  svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="title">
+  <h1>arcscope <span class="small" style="font-size:15px;font-weight:400;">— architecture-aware code-navigation MCP</span></h1>
+  <div class="sub">A fully-local MCP server that gives an AI coding agent three stacked views of an unfamiliar codebase — and a repo-declared architecture vocabulary answered <em>live</em> against current code.</div>
+  <div class="meta">
+    <span><b>Status:</b> Draft spec — pre-build</span>
+    <span><b>Date:</b> 2026-06-19</span>
+    <span><b>Author:</b> Ilie + Claude</span>
+    <span><b>Seeds:</b> a new standalone repo (this file travels with it)</span>
+  </div>
+</header>
+
+<p class="small">This spec was produced from a multi-agent research + design pass (prior art, MCP/tree-sitter/LSP substrate, Claude Code registration, npm distribution, and a verified read of this repo as “user #0”), then revised against three adversarial review lenses — scope, generality, and feasibility/adoption. <a href="#cut">§11</a> records what those reviews cut and why; <a href="#honest">the honesty fixes</a> are flagged inline.</p>
+
+<nav class="toc">
+  <a href="#thesis">1 · Thesis &amp; the wedge</a>
+  <a href="#problem">2 · The problem (four pains)</a>
+  <a href="#priorart">3 · Prior art &amp; where we fit</a>
+  <a href="#principles">4 · Principles</a>
+  <a href="#arch">5 · Architecture (3 layers)</a>
+  <a href="#tools">6 · Tool surface</a>
+  <a href="#manifest">7 · The architecture vocabulary</a>
+  <a href="#onboarding">8 · Cold-start, setup, adoption</a>
+  <a href="#dist">9 · Distribution &amp; dogfood loop</a>
+  <a href="#roadmap">10 · Roadmap</a>
+  <a href="#cut">11 · What we cut &amp; why</a>
+  <a href="#open">12 · Open decisions</a>
+  <a href="#success">13 · Success &amp; kill criteria</a>
+  <a href="#risks">14 · Risks</a>
+</nav>
+
+<!-- ===================================================== -->
+<h2 id="thesis"><span class="n">1</span>Thesis &amp; the wedge</h2>
+<p class="lead">An AI agent dropped into a codebase re-derives its structure with grep every single session. arcscope captures that structure once and answers it on demand — and crucially, it lets a repo <strong>name its own architecture</strong> and binds each named concept to a predicate that is <strong>re-run against the current tree</strong>, so the answer can never silently rot.</p>
+
+<p>The tool sits <em>above</em> the language level. It does not reinvent symbol navigation — that is a solved problem (tree-sitter for breadth, language servers for precision). It stacks three views and earns its keep on the third:</p>
+<ol>
+  <li><strong>Symbols</strong> — where a thing is defined, who references it.</li>
+  <li><strong>The module / dependency graph</strong> — what depends on what, what the hubs are.</li>
+  <li><strong>The architecture vocabulary</strong> — the repo’s own concepts (“the repository tokens”, “the action pipeline”, “the plugin registry”), each answered <em>live</em>.</li>
+</ol>
+
+<div class="callout wedge">
+<p><strong>The wedge, stated against the closest competitor.</strong> Serena (the nearest prior art) already wraps language servers behind MCP and writes project “memories”. But those memories are <em>static prose</em> — hand-written once, never checked against code, stale the moment someone moves a file, and the agent has no way to know. arcscope’s vocabulary entries are <strong>executable locators recomputed on every query</strong>. An answer is never cached prose; drift becomes a <em>signal</em> instead of a surprise. That live-verified, code-bound semantics is the one thing none of the prior art offers — and it is where all net-new effort goes.</p>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="problem"><span class="n">2</span>The problem — four pains</h2>
+<p>These are the four navigation pains the agent hits today, why grep/embeddings fall short, and which layer answers each.</p>
+<table class="pains">
+  <tr><th>#</th><th>Pain</th><th>Why grep / RAG falls short</th><th>Answered by</th></tr>
+  <tr><td>1</td><td><b>Find defs / refs</b> — where is X defined, who calls it</td><td>Text grep on a name yields false positives (comments, shadowing, same-named symbols) and false negatives (re-exports through barrels); no precision signal</td><td>Engine</td></tr>
+  <tr><td>2</td><td><b>Architecture flow</b> — which files participate in a named pipeline/pattern</td><td>No primitive answers a <em>concept</em>-level query; the agent reconstructs the flow by reading file after file</td><td>Knowledge</td></tr>
+  <tr><td>3</td><td><b>Module / dep graph</b> — what depends on this, what are the hubs</td><td>grep can’t traverse edges; following imports by hand is slow and lossy</td><td>Graph</td></tr>
+  <tr><td>4</td><td><b>Re-learning conventions every session</b></td><td>Conventions live in CLAUDE.md prose / tribal knowledge; re-derived each conversation, with no way to tell which are still true</td><td>Knowledge</td></tr>
+</table>
+<p>Pains 1 and 3 are solved by <em>borrowing</em> engines. Pains 2 and 4 are <strong>genuinely unserved</strong> — and solving them is the product.</p>
+
+<!-- ===================================================== -->
+<h2 id="priorart"><span class="n">3</span>Prior art &amp; where we fit</h2>
+<p>We surveyed the field so we don’t reinvent it. The summary: everything good at symbol/graph nav has no notion of <em>declared architecture</em>; the one tool with “knowledge” (Serena) keeps it as unverified prose.</p>
+<table>
+  <tr><th>Tool</th><th>What it is</th><th>Relation to arcscope</th></tr>
+  <tr><td><b>Serena</b></td><td>MCP server wrapping 40+ language servers; symbol tools + static Markdown “memories”</td><td><b>Closest precedent.</b> Mirror its tool ergonomics (agents already know the API); its memories are exactly our vocabulary — but static and unverified. That gap is our wedge.</td></tr>
+  <tr><td><b>mcp-language-server</b></td><td>Thin MCP→single-LSP bridge</td><td>Proves “wrap an LSP” is commodity → differentiation cannot live there.</td></tr>
+  <tr><td><b>ast-grep</b></td><td>Rust structural search over tree-sitter; pattern-as-predicate</td><td>The right <em>idea</em> for vocabulary locators (a concept = a structural query). But it has no concept-naming/registry/freshness layer — and it’s a per-machine binary (see <a href="#open">Open decisions</a>).</td></tr>
+  <tr><td><b>Aider repo-map</b></td><td>tree-sitter + tags.scm + PageRank → ~1k-token prompt digest</td><td>Reuse the extraction recipe &amp; importance ranking. It’s a prompt digest, not an interactive query API — we are the latter.</td></tr>
+  <tr><td><b>Cursor / Continue / Cody</b></td><td>tree-sitter chunking + embeddings (fuzzy RAG)</td><td>Good at “roughly relevant”, weak at precise “who calls X”, zero declared-vocabulary notion. Their zero-config RAG is the adoption-friction baseline we must beat.</td></tr>
+  <tr><td><b>SCIP/LSIF · stack-graphs · ctags · Glean</b></td><td>Precise index formats / config-free nav / long-tail symbols / enterprise SaaS graph</td><td>Borrowable engines/ideas, but all symbol- or content-level; none is a local, per-repo, declared-architecture tool. <span class="small">Explicitly out of v1 — see §11.</span></td></tr>
+</table>
+
+<!-- ===================================================== -->
+<h2 id="principles"><span class="n">4</span>Principles</h2>
+<ol>
+  <li><strong>Borrow the engine, build the vocabulary.</strong> Never reinvent symbol nav. tree-sitter is the always-on breadth substrate; LSP is a <em>future</em> optional precision overlay. All net-new effort goes into the vocabulary layer.</li>
+  <li><strong>Live over stale.</strong> Every vocabulary answer is recomputed against the current tree at query time. We never serve cached prose. Drift (a locator whose resolved set diverges from its accepted anchors) is surfaced as a signal.</li>
+  <li><strong>Nothing leaves the machine.</strong> No network calls, no embeddings API, no telemetry — at <em>query time and at server spawn</em> (see <a href="#onboarding">§8</a>). A hard guarantee, not a toggle.</li>
+  <li><strong>General signals, not build-tool bindings.</strong> Module grouping comes from universal signals (directory structure, import-graph clustering, tsconfig paths, workspace manifests) — never <code>nx.json</code>, BUILD files, or any one tool’s project model.</li>
+  <li><strong>Earn adoption; assume the agent will grep instead.</strong> A registered-but-ignored tool is worthless. Adoption is an <em>empirical</em> bet validated with a kill-criterion in Phase 0 — not a copywriting exercise.</li>
+  <li><strong>Thin vertical slice before breadth.</strong> Ship one pain end-to-end before widening. Nothing speculative; nothing built before a measurement justifies it.</li>
+</ol>
+<p class="small" id="honest">Two host couplings stated honestly up front: arcscope <em>analyzes</em> any language, but it <em>runs</em> on Node ≥ 20 (web-tree-sitter + the MCP SDK) — a polyglot shop with no Node toolchain is a documented prerequisite, not a silent dead end. And “fully local” is a guarantee about behavior, not a claim of zero native code: the eventual persistence layer may use a native module (see <a href="#open">Open decisions</a>).</p>
+
+<!-- ===================================================== -->
+<h2 id="arch"><span class="n">5</span>Architecture — three stacked layers</h2>
+<p>A single local Node/TypeScript process speaking MCP over stdio. Three layers, borrowed at the bottom, built at the top.</p>
+
+<figure>
+<svg viewBox="0 0 900 540" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#6b6b70"/>
+    </marker>
+  </defs>
+  <!-- Agent -->
+  <rect x="300" y="14" width="300" height="46" rx="10" fill="#1c1c1e"/>
+  <text x="450" y="42" text-anchor="middle" fill="#fff" font-size="15" font-weight="600">AI agent (Claude Code)</text>
+  <line x1="450" y1="60" x2="450" y2="86" stroke="#6b6b70" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="465" y="78" fill="#6b6b70" font-size="11">MCP · stdio · local</text>
+
+  <!-- Tool surface -->
+  <rect x="70" y="90" width="760" height="62" rx="10" fill="#fff" stroke="#bcbcbc"/>
+  <text x="86" y="112" fill="#6b6b70" font-size="11" font-weight="700" letter-spacing="0.5">MCP TOOL SURFACE</text>
+  <g font-size="12" font-family="ui-monospace, Menlo, monospace">
+    <rect x="86" y="120" width="92" height="24" rx="5" fill="#dcefe3"/><text x="132" y="136" text-anchor="middle" fill="#1f5a3c">find_def</text>
+    <rect x="186" y="120" width="92" height="24" rx="5" fill="#dde7fb"/><text x="232" y="136" text-anchor="middle" fill="#274b8a">find_refs</text>
+    <rect x="286" y="120" width="96" height="24" rx="5" fill="#dde7fb"/><text x="334" y="136" text-anchor="middle" fill="#274b8a">dep_graph</text>
+    <rect x="390" y="120" width="92" height="24" rx="5" fill="#efe2f7"/><text x="436" y="136" text-anchor="middle" fill="#6a3a8a">arch_list</text>
+    <rect x="490" y="120" width="100" height="24" rx="5" fill="#efe2f7"/><text x="540" y="136" text-anchor="middle" fill="#6a3a8a">arch_query</text>
+    <text x="690" y="136" fill="#999" font-size="11">+ future precision tools</text>
+  </g>
+
+  <!-- Knowledge layer (differentiator) -->
+  <rect x="70" y="166" width="760" height="84" rx="10" fill="#efe2f7" stroke="#a07ac0" stroke-width="2"/>
+  <text x="86" y="188" fill="#6a3a8a" font-size="13" font-weight="700">KNOWLEDGE · architecture vocabulary  ◀ the differentiator</text>
+  <text x="86" y="210" fill="#333" font-size="12">Repo-committed <tspan font-family="ui-monospace,Menlo,monospace">.arcscope/vocab.yaml</tspan>: named concepts → locators, answered LIVE.</text>
+  <text x="86" y="230" fill="#333" font-size="12">Anchor-relative drift detection. Human-authored; format is language-agnostic.</text>
+
+  <!-- Graph layer -->
+  <rect x="70" y="262" width="760" height="74" rx="10" fill="#e7f1ea" stroke="#7fae93"/>
+  <text x="86" y="284" fill="#1f5a3c" font-size="13" font-weight="700">GRAPH · derived dependency view</text>
+  <text x="86" y="306" fill="#333" font-size="12">File→file import edges from the engine. Module grouping from general signals</text>
+  <text x="86" y="324" fill="#333" font-size="12">(directory / import-clustering primary; tsconfig paths &amp; workspaces where present). No Nx.</text>
+
+  <!-- Engine layer -->
+  <rect x="70" y="348" width="760" height="92" rx="10" fill="#f1f1ee" stroke="#bcbcbc"/>
+  <text x="86" y="370" fill="#444" font-size="13" font-weight="700">ENGINE · breadth (always on)</text>
+  <text x="86" y="392" fill="#333" font-size="12">web-tree-sitter (WASM grammars, lazy per-extension load) → symbols + import edges via tags.scm.</text>
+  <text x="86" y="412" fill="#333" font-size="12">In-memory index, content-hash re-index on demand. Every result carries a precision tier.</text>
+  <text x="86" y="430" fill="#8a5a00" font-size="11.5" font-style="italic">Optional LSP precision overlay — deferred (Phase 3+). tree-sitter is the only guaranteed tier.</text>
+
+  <!-- working tree -->
+  <line x1="450" y1="440" x2="450" y2="466" stroke="#6b6b70" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="300" y="470" width="300" height="44" rx="10" fill="#fff" stroke="#bcbcbc"/>
+  <text x="450" y="497" text-anchor="middle" fill="#444" font-size="13">local working tree (read-only)</text>
+
+  <!-- side note -->
+  <text x="846" y="300" fill="#2f6f4f" font-size="11" font-weight="700" transform="rotate(90 846 300)">NOTHING LEAVES THE MACHINE</text>
+</svg>
+<figcaption>The spine (Engine + Graph) is borrowed and commodity; the Knowledge layer is the net-new, defensible surface. Colors map to roadmap phases: <span class="tag v0">Phase 0</span> <span class="tag v1">Phase 1</span> <span class="tag v2">Phase 2</span>.</figcaption>
+</figure>
+
+<h3>Engine — breadth, always on</h3>
+<p>Parse every file with <strong>web-tree-sitter</strong> (WASM grammars loaded lazily per file extension — no per-arch native build, which is the only practical way to be “any machine, any language, cold”). Extract definitions and import edges via each grammar’s <code>tags.scm</code> query with one generic query-runner. <strong>v1 is tree-sitter only.</strong> Every result is labeled with a precision tier so the agent calibrates trust; an LSP overlay is a future tier, not a v1 dependency.</p>
+
+<h3>Graph — derived, not borrowed</h3>
+<p>The dependency graph is a <em>view</em> over the engine’s import edges, not a separate subsystem. Files are nodes; resolved imports are edges. Module grouping is inferred with a deterministic precedence, but with one honesty correction from review (see <a href="#cut">§11</a>): the <strong>directory + import-graph clustering fallback is the primary path</strong>, because the JS-only signals above it are frequently empty — including on this very repo, which has no <code>package.json</code> workspaces and whose real boundaries live in Nx files we deliberately refuse to read. tsconfig <code>paths</code> happen to map cleanly to <code>libs/*</code> here, so they’re a useful secondary signal.</p>
+
+<h3>Knowledge — the architecture vocabulary (the product)</h3>
+<p>A repo-committed manifest declares named concepts, each bound to a <strong>locator</strong> resolved <em>through arcscope’s own engine</em>. <code>arch_query</code> re-runs the locator against current code and returns live locations plus a freshness flag — never stored prose. Detail in <a href="#manifest">§7</a>.</p>
+
+<!-- ===================================================== -->
+<h2 id="tools"><span class="n">6</span>Tool surface</h2>
+<p>Minimal and sharp — one or two tools per pain, named specifically (generic names like <code>query</code> kill discovery). Phase tags show when each ships.</p>
+<table>
+  <tr><th>Tool</th><th>Ships</th><th>Purpose</th><th>Output (sketch)</th></tr>
+  <tr><td><code>find_def</code></td><td><span class="tag v0">P0</span></td><td>Pain 1 — where a symbol is defined, with outline. Definitions are the <em>easy, honest</em> half: tree-sitter beats grep here without any cross-module resolution.</td><td><code>[{symbol, kind, file, line, signature, precisionTier}]</code></td></tr>
+  <tr><td><code>find_refs</code></td><td><span class="tag v1">P1</span></td><td>Pain 1 — who references a symbol. <em>Deliberately not in P0</em>: to actually beat grep it must follow tsconfig aliases + barrel re-exports, which needs the import-edge index built in P1 (see <a href="#cut">§11</a>).</td><td><code>[{file, line, snippet, refKind, precisionTier}]</code></td></tr>
+  <tr><td><code>dep_graph</code></td><td><span class="tag v1">P1</span></td><td>Pain 3 — the module/dep graph or a focused neighborhood.</td><td><code>{nodes, edges, groups}</code>, token-bounded</td></tr>
+  <tr><td><code>arch_list</code></td><td><span class="tag v2">P2</span></td><td>Pain 4 — list the repo’s declared concepts (progressive disclosure: names first).</td><td><code>[{concept, id, description, freshness, instanceCount}]</code></td></tr>
+  <tr><td><code>arch_query</code></td><td><span class="tag v2">P2</span></td><td>Pains 2 &amp; 4 — resolve one named concept live against current code.</td><td><code>{concept, resolved:[{file,line,stage,snippet}], freshness, drift?}</code></td></tr>
+</table>
+<p class="small">The precision-tier field ships from P0 as a constant <code>"tree-sitter"</code>; it exists so the surface has room for an LSP tier later <em>without</em> changing tool shapes — and so the agent is never told a heuristic answer is compiler-accurate.</p>
+
+<!-- ===================================================== -->
+<h2 id="manifest"><span class="n">7</span>The architecture vocabulary — the differentiator</h2>
+<p>A concept bound to an executable locator that is recomputed on demand is precisely what no competitor offers: Serena <em>names</em> knowledge but never verifies it; ast-grep <em>verifies</em> but never names or registers; embeddings do neither. Binding <strong>name → predicate → live answer</strong> makes the manifest captured-once, queried-forever, and structurally unable to silently rot.</p>
+
+<h3>Locator model (v1)</h3>
+<p>A locator resolves through arcscope’s engine — <strong>never a shell command</strong>. This is a hard rule, not an open question: a committed manifest must not be able to execute arbitrary commands on a teammate’s machine on first <code>arch_query</code>. Two kinds in v1:</p>
+<ul>
+  <li><code>path</code> — a glob over the tree (an anchor set of files/dirs).</li>
+  <li><code>symbol</code> — a tree-sitter symbol query (e.g. <code>class GraphReducer</code>, <code>interface I*Repository</code>) scoped by an <code>in:</code> glob.</li>
+</ul>
+<p>A structural (<code>ast-grep</code>-style) locator and an LSP-resolved locator are <em>future</em> kinds, gated on the sandbox/host-dependency decisions in <a href="#open">§12</a>.</p>
+
+<h3>“User #0” — this repo, hand-authored</h3>
+<div class="callout honest">
+<p><strong>Honesty fix (from the generality review).</strong> The manifest <em>format</em> is language-agnostic — it’s just <code>name → locator → anchors</code>. But these five concepts are irreducibly Angular/TS/this-repo-specific and were written <em>by a human who knows the repo</em>, not produced by a general bootstrap. On a fresh unknown repo, auto-proposal yields generic “most-imported modules” hubs — not named architecture concepts. So: <strong>rich vocabulary requires human authoring; auto-bootstrap is a cold-start convenience, deferred.</strong> We validate the wedge by hand first.</p>
+</div>
+
+<p>Below is the verified v1 manifest for this repo, rewritten into the engine-resolved locator model (the research draft used shell <code>grep</code>/<code>find</code>; v1 does not). Paths verified against the current tree.</p>
+<pre><code># .arcscope/vocab.yaml — architecture vocabulary for "user #0" (this repo)
+# Locators resolve through arcscope's engine. No shell-out. Kinds: path | symbol.
+
+concepts:
+  repository-tokens:
+    title: Repository-token pattern (I{Name}Repository)
+    description: DI token + interface + Firestore impl per data-access contract; inject the token, never the class.
+    locators:
+      - { kind: symbol, query: "interface I*Repository", in: "libs/data-access/src/lib/interfaces/**" }
+      - { kind: symbol, query: "const *_REPOSITORY = InjectionToken", in: "libs/data-access/src/lib/tokens/injection-tokens.ts" }
+      - { kind: path,   glob: "apps/**/core/repositories/firestore-*.repository.ts" }
+
+  editor-state-flow:
+    title: "Editor state pipeline: tool → facade → router → reducer → state"
+    description: Unidirectional dispatch for every editor mutation.
+    stages:                       # ordered → arch_query returns the flow in sequence
+      - { title: GraphEditorFacade,       kind: symbol, query: "class GraphEditorFacade",       in: "libs/features/graph/**/services/core/**" }
+      - { title: ActionRouterService,     kind: symbol, query: "class ActionRouterService",     in: "libs/features/graph/**/services/core/**" }
+      - { title: GraphReducer,            kind: symbol, query: "class GraphReducer",            in: "libs/features/graph/**/state/**" }
+      - { title: GraphEditorStateService, kind: symbol, query: "class GraphEditorStateService", in: "libs/features/graph/**/services/core/**" }
+
+  shape-plugin-registry:
+    title: Shape plugin registry &amp; registration
+    locators:
+      - { kind: symbol, query: "class PluginRegistryService", in: "libs/features/graph/**" }
+      - { kind: symbol, query: "const CORE_PLUGIN_PROVIDERS", in: "libs/features/graph/**/plugins/**" }
+      - { kind: path,   glob: "libs/features/graph/**/plugins/*.plugin.ts" }
+
+  schema-migrations:
+    title: Document &amp; element schemaVersion migrations
+    locators:
+      - { kind: symbol, query: "class DocumentNormalizerService", in: "libs/features/graph/**/persistence/**" }
+      - { kind: symbol, query: "method normalizeElement",          in: "libs/features/graph/**/plugins/**" }
+
+  firestore-import-boundary:
+    title: "@angular/fire/firestore import perimeter"
+    # DEGRADED in v1: we anchor the allowed island + point at the rule. Live-extracting the
+    # allowlist out of eslint.config.mjs needs a 'custom' locator (parse a JS config object) —
+    # deferred until the locator host/sandbox model is settled (see Open decisions).
+    locators:
+      - { kind: path, glob: "apps/**/core/persistence/**" }   # the only place firestore imports are allowed
+      - { kind: path, glob: "eslint.config.mjs" }             # where the rule is defined
+</code></pre>
+<p class="small">The generality review caught two things baked in above: <code>firestore-import-boundary</code> is genuinely config-introspection, not code navigation — so it ships <em>degraded</em> (anchors only) with an honest note, rather than pretending a v1 locator can parse an ESLint flat-config object. And authoring this by hand surfaced exactly how repo-specific these predicates are — which is the evidence that reliable auto-bootstrap is hard.</p>
+
+<h3>Drift detection — anchor-relative, not magnitude-relative</h3>
+<p>The dangerous staleness is not “resolved to zero” — it’s “still resolves to a plausible-but-wrong set after a refactor.” So at accept time we store the resolved set (content-hashed anchors); <code>arch_query</code> flags <code>drifted</code> when the current resolution <em>diverges from the stored anchors</em>, not only when the count collapses. That’s what actually delivers “drift is a signal, not a surprise.”</p>
+
+<!-- ===================================================== -->
+<h2 id="onboarding"><span class="n">8</span>Cold-start, setup &amp; adoption</h2>
+<p>A real user starts from <strong>nothing</strong>: an unknown local checkout, no package, no server. So cold-start, setup, registration, and adoption are first-class product surfaces — designed, not assumed.</p>
+
+<h3>Cold-start &amp; the index</h3>
+<p>One command, <code>npx arcscope init</code>, run in the repo root: detect languages by extension, lazy-load the needed WASM grammars, run a first index pass, write registration config, and update <code>.gitignore</code>. <strong>No persistent SQLite store or file watcher in the slice</strong> (a review cut — see §11): index in-memory on server start, re-index lazily on a tool call when a file’s content hash changed. We add a persistent store + incremental watcher only <em>after</em> a benchmark on this repo (~1,067 TS files) shows on-demand re-index is too slow. We quote no performance number until that benchmark exists.</p>
+
+<h3>Setup &amp; registration (Claude Code first)</h3>
+<p><code>init</code> writes a project-scoped <code>.mcp.json</code> at the repo root — the committed, git-shared mechanism Claude Code reads (equivalent CLI: <code>claude mcp add --scope project --transport stdio arcscope -- …</code>). First connection prompts for approval (stdio servers are a trust boundary). A single <code>bin</code> branches on argv (<code>init</code> | <code>serve</code>). Other clients (Cursor/Cline/Codex, Claude Desktop) use the same <code>mcpServers</code> shape; <code>init</code> prints the snippet.</p>
+<div class="callout honest">
+<p><strong>Honesty fix (feasibility review): “no network” includes server spawn.</strong> A committed <code>command: npx arcscope serve</code> makes <em>every session start</em> an npx resolution that can hit the network — violating the local-only guarantee at spawn time and risking an unpinned breaking version mid-project. So for the dogfood/committed config we point at a locally-resolved binary (prefer <code>node_modules/.bin</code> when arcscope is a devDependency, or a pinned version), so server start is offline and deterministic.</p>
+</div>
+
+<h3>Adoption — the #1 risk, treated empirically</h3>
+<p>A registered tool the agent ignores is worthless, and the product’s single success criterion <em>is</em> “the agent reaches for arcscope instead of grep.” The levers are real but all prompt-engineering: the MCP server <code>instructions</code> field (the Tool-Search gateway loaded at session start), “Use when …” tool descriptions, and a short CLAUDE.md preference nudge (project rules take precedence over MCP discovery).</p>
+<div class="callout honest">
+<p><strong>Honesty fix (feasibility review).</strong> (1) This repo’s CLAUDE.md has <em>no</em> existing navigation guidance to amend — the nudge is net-new (verified). (2) More importantly, adoption is a <strong>bet, not a given</strong>, so Phase 0 treats it as an empirical gate with a <strong>kill-criterion</strong>: run a paste-able test prompt against the real agent across N realistic navigation tasks in this repo and measure whether it invokes the tool <em>unprompted</em>. If it won’t, the wedge is dead regardless of engine quality — fix instructions/descriptions/nudge before building anything else. A local-only invocation counter (writes to <code>.arcscope/</code>, never the network) quantifies the grep-vs-tool ratio during dogfooding.</p>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="dist"><span class="n">9</span>Distribution &amp; the dogfood loop</h2>
+<p>arcscope is a <strong>standalone repo</strong> from day one — <em>not</em> a package inside this Nx monorepo. This repo is only its first <em>consumer</em>. (That sidesteps the whole “uninstallable <code>@graph-knowledge/*</code> workspace-dep tarball” class of bug the synthesis worried about — there are no such deps.)</p>
+<p>Public npm publish is a <strong>milestone, not a test step</strong>: npm versions are permanently immutable (a burned version is burned forever; unpublish is heavily restricted), so iterating via public publishes litters history with dead releases. The ladder:</p>
+<ul>
+  <li><strong>Inner loop (this repo):</strong> run the local bin directly — <code>npm link</code> or an absolute/<code>node_modules/.bin</code> path in <code>.mcp.json</code>. You don’t need a registry to consume your own server in your own repo.</li>
+  <li><strong>Stage 0 — <code>npm pack --dry-run</code>:</strong> lock the file manifest (catch a missing <code>dist/</code> or the <code>bin</code> pointing outside <code>files</code>).</li>
+  <li><strong>Stage 1 — <code>npm pack</code> + install the tarball into a scratch consumer:</strong> exercise both faces — <code>arcscope init</code> from the installed shim and <code>npx arcscope serve</code> launching the stdio server.</li>
+  <li><strong>Verdaccio — deferred</strong> to immediately before the first public publish (a review cut: rehearsing the publish round-trip has no value until you intend to publish). When we get there, it lets us re-publish the same <code>0.0.1</code> freely without burning public coordinates.</li>
+  <li><strong>Milestone — first public publish under <code>--tag next</code></strong> (so <code>latest</code> stays clean; testers opt in via <code>@next</code>), only once the slice works end-to-end. Cut <code>0.1.0</code> on <code>latest</code> later.</li>
+</ul>
+<p class="small"><strong>Packaging shape</strong> (mirrors the official MCP servers): <code>"type":"module"</code>, single <code>"bin"</code> branching on argv, <code>"files":["dist"]</code> (+ vendored <code>.wasm</code> grammars &amp; <code>tags.scm</code>), <code>"engines":{"node":">=20"}</code>, shebang on line 1, <code>tsc &amp;&amp; shx chmod +x</code>. Log to <strong>stderr only</strong> — a stray <code>console.log</code> on stdout corrupts the JSON-RPC stream and silently hangs the server.</p>
+
+<!-- ===================================================== -->
+<h2 id="roadmap"><span class="n">10</span>Roadmap</h2>
+<p>Each phase ships value on this repo and ends with a measurement, not a hope. Phases 0–2 are the committed plan; everything past is explicitly out of v1.</p>
+
+<h3><span class="tag v0">Phase 0</span> Spine + the adoption gate &nbsp;<span class="small">(TS/JS only)</span></h3>
+<ul>
+  <li>web-tree-sitter engine, lazy grammar load, <code>tags.scm</code> definition extraction → in-memory index (no persistent store, no watcher).</li>
+  <li><strong>One tool: <code>find_def</code></strong> — definitions genuinely beat grep with no resolution machinery.</li>
+  <li><code>arcscope init</code> / <code>serve</code> bin; <code>.mcp.json</code> points at the local resolved bin; logging to stderr.</li>
+  <li><strong>Adoption gate (do this early):</strong> run the test prompt against the real agent; measure unprompted invocation; kill-criterion if it won’t bite.</li>
+  <li><strong>Acceptance:</strong> measure WASM cold-index time on this repo before quoting any figure.</li>
+  <li><em>Ships:</em> Pain 1 (definitions) end-to-end — and the load-bearing adoption bet is validated <em>before</em> further investment.</li>
+</ul>
+
+<h3><span class="tag v1">Phase 1</span> References + dependency graph</h3>
+<ul>
+  <li>Build the <strong>import-edge index</strong> (resolving tsconfig <code>paths</code> + barrel re-exports — the cheap 80%). This is shared machinery for both tools below.</li>
+  <li><code>find_refs</code> — now actually beats grep because it follows aliases/barrels; cross-module hits it can’t resolve are honestly labeled “unresolved candidate”, never dressed up as precise.</li>
+  <li><code>dep_graph</code> — file→file import graph; directory grouping primary, tsconfig-paths where present. PageRank ranking deferred until neighborhood queries prove noisy without it.</li>
+  <li>Worker-pool parallelism <em>iff</em> the P0 cold-index benchmark was too slow single-threaded.</li>
+  <li><em>Ships:</em> Pain 1 (fully) + Pain 3.</li>
+</ul>
+
+<h3><span class="tag v2">Phase 2</span> The differentiator — architecture vocabulary</h3>
+<ul>
+  <li><code>.arcscope/vocab.yaml</code> schema + loader; <strong>one engine-resolved locator path</strong> (symbol query + path glob), no shell-out.</li>
+  <li><code>arch_list</code> + <code>arch_query</code>, answered live; anchor-relative drift detection.</li>
+  <li><strong>Hand-author this repo’s vocabulary</strong> (the §7 manifest) and validate the wedge against Serena-style static prose. Auto-bootstrap stays deferred.</li>
+  <li>First public npm publish (<code>--tag next</code>) around here, once solid.</li>
+  <li><em>Ships:</em> Pains 2 &amp; 4 — and the unique, defensible wedge is live.</li>
+</ul>
+
+<h3><span class="tag later">Later / explicitly out of v1</span></h3>
+<p>Optional LSP precision overlay (tree-sitter fallback + tier labeling) · auto-bootstrap (PageRank hubs + a few <em>cross-language</em> heuristics, validated on a non-JS repo before claiming value) · persistent SQLite + incremental watcher (only if benchmarks demand) · more grammars/languages · ast-grep as an optional accelerator (never required) · CI conformance mode for drift · SCIP / stack-graphs as far-future precision substrates · public GA (<code>0.1.0</code>/<code>1.0.0</code> on <code>latest</code>).</p>
+
+<!-- ===================================================== -->
+<h2 id="cut"><span class="n">11</span>What we cut, and why</h2>
+<p>The synthesized design was, per the scope review, ~2× the wedge. These cuts come straight from the three review lenses and are the difference between this spec and the raw synthesis.</p>
+<div class="callout cut">
+<table style="margin:0;">
+  <tr><th>Cut / deferred</th><th>Why</th></tr>
+  <tr><td><b>LSP / ctags / SCIP / stack-graphs</b> from the committed plan</td><td>The spec’s own logic says “wrap-an-LSP is commodity → differentiation can’t live there.” It’s also the most operationally fragile piece. tree-sitter-only for v1; precision tier is a label with room to grow.</td></tr>
+  <tr><td><b><code>find_symbol</code>+<code>find_refs</code> both in P0</b> → <code>find_def</code> in P0, <code>find_refs</code> in P1</td><td>Definitions are the easy half (real grep win, no resolution). References only beat grep <em>after</em> the import-edge index exists — and on this repo’s barrel/alias-heavy code, an unresolved tree-sitter “ref” is the same false-positive soup as grep, mislabeled as precise.</td></tr>
+  <tr><td><b>Auto-bootstrap of the manifest</b> (PageRank + pattern heuristics)</td><td>Highest-effort, lowest-validated, and reverse-engineered from <em>this</em> repo’s Angular/Redux idioms — they don’t fire on a Go/Rust/Python repo. Validate the wedge with a hand-written manifest first.</td></tr>
+  <tr><td><b>Three locator types</b> → one (symbol + path)</td><td>Three backends = three failure modes before anyone knows which users reach for. The LSP-query locator can’t even exist pre-LSP. Shell-out locators are a security hole (arbitrary commands from a committed file) — banned outright.</td></tr>
+  <tr><td><b>Persistent SQLite + file watcher + content-hash incrementality</b></td><td>A sophisticated incrementality machine built before the full-index time is even measured. In-memory + lazy re-index for the slice; add the machine only if a benchmark demands it. (Also dodges the unnamed-SQLite-driver-vs-“no native build” contradiction.)</td></tr>
+  <tr><td><b>PageRank, workspace/tsconfig grouping precedence, community detection</b> in P1</td><td>dep_graph v1 = raw import graph + directory grouping. Ranking/precedence/clustering added only when the simple version proves too noisy. (And the leading “workspaces” tier no-ops on this repo anyway.)</td></tr>
+  <tr><td><b>Verdaccio</b> in the dogfood loop</td><td>Publish-round-trip rehearsal has no value until you intend to publish. Deferred to just before first public publish; inner loop runs the local bin directly.</td></tr>
+</table>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="open"><span class="n">12</span>Open decisions <span class="small" style="font-weight:400">— need your call</span></h2>
+<ol>
+  <li><strong>Name — decided: <code>arcscope</code></strong> (free on npm as of 2026-06-19). Still open: scoped (<code>@you/arcscope</code>) vs unscoped — scoped publishes restricted-by-default, so needs <code>--access public</code> on first publish.</li>
+  <li><strong>Grammar delivery.</strong> Bundle a curated, pinned set of <code>.wasm</code> grammars + vetted <code>tags.scm</code> (predictable, offline, but heavier package) vs locate them from <code>node_modules</code> (lighter, but version-drift &amp; the no-network guarantee fight). Recommendation: <em>bundle a small pinned set</em> (TS/JS for the slice).</li>
+  <li><strong>Persistence driver</strong> (when we add it). <code>better-sqlite3</code> (native, fast, but breaks a literal “no native build”) vs <code>node:sqlite</code> (no native dep, but experimental on the Node-20 floor). Resolve by restating the principle as “no per-<em>language</em> native build” and accepting one native store dep — <em>when</em> we need a store.</li>
+  <li><strong>Nx grouping signal.</strong> Your standing directive is general-first, so we do <em>not</em> read <code>nx.json</code>/<code>project.json</code>. The honest cost: arcscope under-groups the Nx/Bazel monorepos that most need grouping (its only current user included), falling back to tsconfig-paths + directory. Confirm you’re OK paying that for generality.</li>
+  <li><strong>Future structural/“custom” locators &amp; sandboxing.</strong> The <code>firestore-import-boundary</code> concept wants to parse a JS config object live; that implies a custom-code locator, which reopens “can a committed manifest run code on a teammate’s machine?” v1 answer: no — engine-resolved locators only. Decide later whether a sandboxed custom locator is worth it.</li>
+  <li><strong>Scope of the live answer.</strong> v1 is strictly read-only navigation. A CI “conformance mode” (fail the build when a concept drifts) is a plausible <em>second</em> product — confirm it stays out of v1 so it doesn’t bend the tool shapes.</li>
+</ol>
+
+<!-- ===================================================== -->
+<h2 id="success"><span class="n">13</span>Success &amp; kill criteria</h2>
+<h4>Success</h4>
+<ul>
+  <li>In this repo, the agent <em>searches for and invokes</em> arcscope tools instead of grep on realistic navigation tasks — confirmed via the test prompt without naming the tool.</li>
+  <li><code>find_def</code> (P0) / <code>find_refs</code> (P1) return correct results for known symbols, with the precision tier labeled honestly.</li>
+  <li><code>npx arcscope init</code> on a fresh clone produces a working <code>.mcp.json</code> and a non-empty index with zero manual setup and <strong>zero network calls</strong> (verifiable by monitoring the process — including at server spawn).</li>
+  <li>(P2) <code>arch_query</code> on each user-#0 concept returns live, correct locations and flips to <code>drifted</code> when the underlying code/anchors change.</li>
+  <li>The package installs cleanly from a tarball into an external scratch consumer; both bin faces run.</li>
+  <li>Cold index of this repo completes in a duration we have <em>measured</em> (and that doesn’t make first-session feel slower than grep); single-file re-index is sub-second.</li>
+</ul>
+<h4>Kill criteria</h4>
+<ul>
+  <li><strong>Adoption (P0):</strong> if the agent won’t invoke the tools unprompted after the instructions/descriptions/nudge are tuned, the wedge is dead — stop and rethink before building P1+.</li>
+  <li><strong>Precision (P1):</strong> if import-resolved <code>find_refs</code> still can’t beat grep on this repo’s barrel/alias patterns, the “precise nav” half of the pitch falls to the deferred LSP tier — re-decide whether that’s acceptable for v1.</li>
+  <li><strong>Wedge (P2):</strong> if a hand-authored, live-recomputed manifest demonstrably doesn’t beat static prose in practice, the differentiator is unproven — don’t build auto-bootstrap on top of it.</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 id="risks"><span class="n">14</span>Risks</h2>
+<table>
+  <tr><th>Risk</th><th>Mitigation</th></tr>
+  <tr><td>Serena copies “better memories”, collapsing the wedge</td><td>Defensibility is live-verified, code-bound, recomputed-on-demand semantics + drift detection — not prose. Ship freshness/drift as a first-class signal static memories structurally can’t provide.</td></tr>
+  <tr><td>tree-sitter tag-based nav is heuristic (false pos/neg on overloads, re-exports, shadowing)</td><td>Always-on, never blocks; every result tier-labeled “approximate”; LSP precision is a clearly-marked future tier. Be honest in the label so the agent calibrates.</td></tr>
+  <tr><td>Zero-config RAG (Cursor/Continue) is “good enough”, so authoring a vocabulary is friction</td><td>Value must be visible without authoring: <code>find_def</code>/<code>find_refs</code>/<code>dep_graph</code> need no manifest; the vocabulary is upside, not a precondition.</td></tr>
+  <tr><td>WASM-in-Node full-index slower than borrowed native figures</td><td>Drop trees after extraction; lazy re-index; benchmark before quoting; worker-pool only if measured slow; optional native fast path never required at cold start.</td></tr>
+  <tr><td>Vocabulary predicates are real work and rot</td><td>Anchor-relative drift surfaces rot proactively; auto-bootstrap (later) lowers authoring cost — but only after the manual wedge is proven.</td></tr>
+  <tr><td>“Registered but ignored”</td><td>The whole of <a href="#onboarding">§8</a>: instructions field, “Use when” descriptions, CLAUDE.md nudge, and — decisively — an empirical P0 gate with a kill-criterion and a local invocation counter.</td></tr>
+  <tr><td>stdio corruption from stray stdout</td><td>Hard rule: all logging to stderr; lint/CI forbids <code>console.log</code> in the server entry; verified during tarball consumption.</td></tr>
+</table>
+
+<hr/>
+<p class="small">Sources behind this spec (research pass): Serena / SolidLSP, mcp-language-server, ast-grep, Aider repo-map, SCIP/LSIF, stack-graphs, universal-ctags; the MCP TypeScript SDK + Claude Code MCP docs (Tool Search, <code>.mcp.json</code>, scopes); web-tree-sitter + <code>tags.scm</code> code-navigation spec, typescript-language-server; npm pack / Verdaccio / unpublish &amp; dist-tag policy; and a verified read of this repository for the user-#0 manifest.</p>
+
+</div>
+</body>
+</html>

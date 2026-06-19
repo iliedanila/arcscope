@@ -1,0 +1,43 @@
+{
+  "name": "arcscope",
+  "version": "0.0.0",
+  "description": "Fully-local, architecture-aware code-navigation MCP server. tree-sitter breadth + a repo-declared architecture vocabulary answered live.",
+  "type": "module",
+  "bin": {
+    "arcscope": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "shx rm -rf dist && tsc -p tsconfig.build.json && shx cp -r vendor/grammars dist/grammars && shx chmod +x dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "vendor:grammars": "shx cp node_modules/web-tree-sitter/web-tree-sitter.wasm vendor/grammars/ && shx cp node_modules/tree-sitter-typescript/tree-sitter-typescript.wasm node_modules/tree-sitter-typescript/tree-sitter-tsx.wasm node_modules/tree-sitter-javascript/tree-sitter-javascript.wasm vendor/grammars/ && shx cp node_modules/tree-sitter-typescript/queries/tags.scm vendor/grammars/typescript-tags.scm && shx cp node_modules/tree-sitter-javascript/queries/tags.scm vendor/grammars/javascript-tags.scm"
+  },
+  "keywords": [
+    "mcp",
+    "tree-sitter",
+    "code-navigation",
+    "architecture",
+    "local"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "web-tree-sitter": "^0.26.9",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "shx": "^0.4.0",
+    "tree-sitter-javascript": "^0.25.0",
+    "tree-sitter-typescript": "^0.23.2",
+    "tsx": "^4.22.4",
+    "typescript": "^5.7.0"
+  }
+}

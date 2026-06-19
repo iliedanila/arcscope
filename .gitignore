@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.log
+
+# arcscope local index/usage cache (regenerable, never committed)
+.arcscope/
+
+# machine-specific MCP registration (regenerate with `arcscope init`)
+.mcp.json
+
+# scratch / de-risking spikes (local only)
+spike/
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
