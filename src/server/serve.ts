@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GrammarRegistry } from '../engine/grammar-registry.js';
 import { IndexStore } from '../engine/index-store.js';
@@ -11,7 +12,16 @@ import { runArchList } from '../tools/arch-list.js';
 import { runArchQuery, archQueryInputShape } from '../tools/arch-query.js';
 import { log, logError } from '../log.js';
 
-const VERSION = '0.0.0';
+// Read from package.json (shipped in the tarball) so it never drifts from the
+// published version.
+const VERSION = ((): string => {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 // Server-level instructions are surfaced by the client (Claude Code) at session
 // start and are the highest-leverage adoption lever: they tell the agent WHEN to
