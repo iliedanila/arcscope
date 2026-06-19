@@ -78,7 +78,38 @@ export class IndexStore {
   find(symbol: string, pathGlob?: string): DefRecord[] {
     const arr = this.defs.get(symbol) ?? [];
     const res = pathGlob ? arr.filter((r) => matchGlob(r.file, pathGlob)) : arr;
-    return [...res].sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
+    return [...res].sort(byFileLine);
+  }
+
+  // Approximate name matches, used only when an exact find() returns nothing — so
+  // the agent doesn't have to guess the precise symbol name. Returns one
+  // representative definition per similarly-named symbol (case-insensitive),
+  // ranked: prefix match, then substring, then the query containing the name.
+  // Matching is by NAME only; the returned locations are still exact.
+  findFuzzy(symbol: string, pathGlob?: string, limit = 12): DefRecord[] {
+    const q = symbol.toLowerCase();
+    const matches: { rec: DefRecord; score: number }[] = [];
+    for (const [name, recs] of this.defs) {
+      const lower = name.toLowerCase();
+      if (lower === q) continue; // exact is handled by find()
+      let score: number;
+      if (lower.startsWith(q)) score = 0;
+      else if (lower.includes(q)) score = 1;
+      // The weakest signal — the query contains the symbol's name — only counts for
+      // substantial names, else tiny symbols like `y`/`ry` pollute every query.
+      else if (lower.length >= 4 && q.includes(lower)) score = 2;
+      else continue;
+      const inScope = pathGlob ? recs.filter((r) => matchGlob(r.file, pathGlob)) : recs;
+      if (inScope.length === 0) continue;
+      matches.push({ rec: [...inScope].sort(byFileLine)[0]!, score });
+    }
+    matches.sort(
+      (a, b) =>
+        a.score - b.score ||
+        a.rec.symbol.length - b.rec.symbol.length ||
+        (a.rec.symbol < b.rec.symbol ? -1 : 1),
+    );
+    return matches.slice(0, limit).map((m) => m.rec);
   }
 
   private async indexFile(abs: string, mtimeMs: number, size: number): Promise<void> {
@@ -125,4 +156,8 @@ export class IndexStore {
     const rel = relative(this.root, abs);
     return sep === '/' ? rel : rel.split(sep).join('/');
   }
+}
+
+function byFileLine(a: DefRecord, b: DefRecord): number {
+  return a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1;
 }

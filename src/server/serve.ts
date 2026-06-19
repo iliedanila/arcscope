@@ -31,7 +31,8 @@ const FIND_DEF_DESCRIPTION = [
   "enum, or exported constant — e.g. \"where is GraphReducer defined?\".",
   'More precise than text search: it parses the code, so it skips comments, strings, and unrelated',
   'same-named matches. Returns each definition as file:line, kind, and header signature, with a',
-  'precision tier. Optionally scope to part of the repo with a path glob.',
+  'precision tier. If no exact match exists, it suggests symbols with similar names — so you can',
+  "call it even when you're unsure of the precise name. Optionally scope to part of the repo with a path glob.",
 ].join(' ');
 
 export async function serve(root: string): Promise<void> {
