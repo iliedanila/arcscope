@@ -26,7 +26,7 @@ export async function init(root: string): Promise<void> {
   out(`arcscope: wrote ${relative(root, mcpPath) || '.mcp.json'} (node -> ${binPath} serve)`);
 
   // 3. Keep regenerable local state out of git.
-  if (ensureGitignore(root)) out('arcscope: added .arcscope/ to .gitignore');
+  if (ensureGitignore(root)) out('arcscope: updated .gitignore (.arcscope/* ignored, vocab.yaml committed)');
 
   out('arcscope: ready — reconnect your MCP client to load the server.');
 }
