@@ -17,7 +17,7 @@ Everything runs on your machine: **no network at query time or at server spawn, 
 | tool | answers |
 | --- | --- |
 | `find_def` | where a symbol is defined, with its signature |
-| `find_refs` | who references it — follows tsconfig path aliases + barrel re-exports, so it beats grep on same-named symbols |
+| `find_refs` | who references it — follows tsconfig path aliases + same-name barrel re-exports (1-hop), so it beats grep on same-named symbols |
 | `dep_graph` | the file/module dependency graph: hubs, a file's neighborhood, or circular dependencies |
 | `arch_list` | the repo's named architecture concepts (its committed vocabulary) |
 | `arch_query` | resolve one concept to its **live** code locations, with drift detection |
