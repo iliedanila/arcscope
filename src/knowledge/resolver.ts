@@ -18,6 +18,24 @@ export function resolveConcept(store: IndexStore, concept: Concept): ResolvedLoc
   return (concept.locators ?? []).flatMap((loc) => resolveLocator(store, loc));
 }
 
+export interface ConceptResolution {
+  locations: ResolvedLocation[];
+  error?: string;
+}
+
+// Resolve a concept without throwing on a malformed locator. A committed
+// vocab.yaml travels to every teammate, so a single authoring slip (e.g. a
+// symbol query missing its kind) must not blank the whole Knowledge layer: the
+// error is reported per-concept (loud, never silently dropped) while siblings
+// still resolve. Both arch tools route through here.
+export function resolveConceptSafe(store: IndexStore, concept: Concept): ConceptResolution {
+  try {
+    return { locations: resolveConcept(store, concept) };
+  } catch (err) {
+    return { locations: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 function resolveLocator(store: IndexStore, loc: Locator): ResolvedLocation[] {
   if (loc.kind === 'symbol') {
     const { kind, namePattern, valueConstraint } = parseSymbolQuery(loc.query);

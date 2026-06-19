@@ -111,6 +111,48 @@ test('drift detects a changed definition signature (plausible-but-wrong case)', 
   }
 });
 
+test('a malformed locator degrades per-concept — it never blanks the whole layer', async () => {
+  // One typo in a committed vocab.yaml (a symbol query with no kind) must not
+  // throw away every valid concept. arch_list keeps listing the good ones and
+  // flags the bad; arch_query returns a graceful error, not a raw crash.
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-arch-'));
+  try {
+    mkdirSync(join(dir, '.arcscope'), { recursive: true });
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src/a.ts'), 'export interface IUserRepository {}\n');
+    writeFileSync(
+      join(dir, '.arcscope/vocab.yaml'),
+      [
+        'concepts:',
+        '  good:',
+        '    title: Good concept',
+        '    locators:',
+        '      - { kind: symbol, query: "interface I*Repository", in: "src/**" }',
+        '  bad:',
+        '    title: Typo concept',
+        '    locators:',
+        '      - { kind: symbol, query: "noSpaceHere" }',
+      ].join('\n'),
+    );
+    const store = new IndexStore(dir, new GrammarRegistry());
+
+    const list = await runArchList(store, dir); // must not throw
+    assert.equal(list.conceptCount, 2);
+    assert.match(list.text, /good — Good concept · 1 location/); // valid concept still listed
+    assert.match(list.text, /bad.*invalid locator/); // bad one flagged, not hidden
+
+    const bad = await runArchQuery(store, dir, { concept: 'bad' }); // must not throw
+    assert.equal(bad.freshness, 'error');
+    assert.deepEqual(bad.resolved, []);
+    assert.match(bad.text, /invalid locator/);
+
+    const good = await runArchQuery(store, dir, { concept: 'good' }); // unaffected
+    assert.deepEqual(good.resolved.map((r) => r.symbol), ['IUserRepository']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('arch_list counts live; unknown concept is handled', async () => {
   const dir = fixture();
   try {
