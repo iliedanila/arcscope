@@ -1,63 +1,48 @@
-import { Parser } from 'web-tree-sitter';
-import type { Language, Query, Node, QueryCapture } from 'web-tree-sitter';
+import type { Query, Node, QueryCapture, Tree } from 'web-tree-sitter';
 import type { DefRecord } from './types.js';
 
 const DEF_PREFIX = 'definition.';
 const SIGNATURE_MAX = 200;
 
-// Parse one file and extract its symbol definitions via the grammar's tags query.
-// Pairs each @definition.<kind> capture with its @name; dedupes by (symbol,line),
-// preferring a specific kind over the generic `constant` when a binding matches
-// more than one pattern (e.g. an exported arrow function is a function, not a
-// constant). The tree is dropped immediately after extraction to bound memory.
-export function extractDefs(
-  parser: Parser,
-  language: Language,
-  query: Query,
-  file: string,
-  source: string,
-): DefRecord[] {
-  parser.setLanguage(language);
-  const tree = parser.parse(source);
-  if (!tree) return [];
-  try {
-    const byKey = new Map<string, DefRecord>();
-    for (const match of query.matches(tree.rootNode)) {
-      let defCap: QueryCapture | undefined;
-      let nameCap: QueryCapture | undefined;
-      for (const c of match.captures) {
-        if (c.name.startsWith(DEF_PREFIX)) defCap = c;
-        else if (c.name === 'name') nameCap = c;
-      }
-      if (!defCap || !nameCap) continue;
-
-      const symbol = nameCap.node.text;
-      // The JS tags exclude constructors via a predicate; web-tree-sitter does not
-      // auto-apply it, so honor the intent here.
-      if (symbol.length === 0 || symbol === 'constructor') continue;
-
-      const kind = defCap.name.slice(DEF_PREFIX.length);
-      const line = nameCap.node.startPosition.row + 1;
-      const key = `${symbol}:${line}`;
-      // Keep the first match for a (symbol, line), but let a specific kind replace
-      // the generic 'constant' — an exported arrow function is a function, not a
-      // constant, and both patterns match it.
-      const existing = byKey.get(key);
-      const newIsMoreSpecific = existing?.kind === 'constant' && kind !== 'constant';
-      if (existing && !newIsMoreSpecific) continue;
-      byKey.set(key, {
-        symbol,
-        kind,
-        file,
-        line,
-        signature: signatureOf(defCap.node),
-        precisionTier: 'tree-sitter',
-      });
+// Extract symbol definitions from an already-parsed tree via the grammar's tags
+// query. The caller owns the tree (so definitions and imports can share one
+// parse). Pairs each @definition.<kind> capture with its @name; dedupes by
+// (symbol, line), preferring a specific kind over the generic 'constant'.
+export function extractDefs(query: Query, file: string, tree: Tree): DefRecord[] {
+  const byKey = new Map<string, DefRecord>();
+  for (const match of query.matches(tree.rootNode)) {
+    let defCap: QueryCapture | undefined;
+    let nameCap: QueryCapture | undefined;
+    for (const c of match.captures) {
+      if (c.name.startsWith(DEF_PREFIX)) defCap = c;
+      else if (c.name === 'name') nameCap = c;
     }
-    return [...byKey.values()];
-  } finally {
-    tree.delete();
+    if (!defCap || !nameCap) continue;
+
+    const symbol = nameCap.node.text;
+    // The JS tags exclude constructors via a predicate; web-tree-sitter does not
+    // auto-apply it, so honor the intent here.
+    if (symbol.length === 0 || symbol === 'constructor') continue;
+
+    const kind = defCap.name.slice(DEF_PREFIX.length);
+    const line = nameCap.node.startPosition.row + 1;
+    const key = `${symbol}:${line}`;
+    // Keep the first match for a (symbol, line), but let a specific kind replace
+    // the generic 'constant' — an exported arrow function is a function, not a
+    // constant, and both patterns match it.
+    const existing = byKey.get(key);
+    const newIsMoreSpecific = existing?.kind === 'constant' && kind !== 'constant';
+    if (existing && !newIsMoreSpecific) continue;
+    byKey.set(key, {
+      symbol,
+      kind,
+      file,
+      line,
+      signature: signatureOf(defCap.node),
+      precisionTier: 'tree-sitter',
+    });
   }
+  return [...byKey.values()];
 }
 
 // Honest "signature": the definition's real header text with any block body
@@ -66,9 +51,7 @@ export function extractDefs(
 // (`(x: { a })`), and object const values (`= { a: 1 }`). Definitions with no
 // block body (type aliases, ambient signatures, expression-bodied arrows,
 // non-function consts) keep their full text. Whitespace is collapsed so a wrapped
-// multi-line signature reads on one line; the body is never included. It is the
-// real header text, never reconstructed — which beats grep's match line by being
-// guaranteed to be the definition.
+// multi-line signature reads on one line; the body is never included.
 function signatureOf(node: Node): string {
   const bodyStart = bodyStartIndex(node);
   const text = node.text;

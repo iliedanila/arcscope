@@ -5,6 +5,7 @@ import { GrammarRegistry } from '../engine/grammar-registry.js';
 import { IndexStore } from '../engine/index-store.js';
 import { InvocationCounter } from '../adoption/counter.js';
 import { runFindDef, findDefInputShape } from '../tools/find-def.js';
+import { runFindRefs, findRefsInputShape } from '../tools/find-refs.js';
 import { log, logError } from '../log.js';
 
 const VERSION = '0.0.0';
@@ -21,9 +22,22 @@ const INSTRUCTIONS = [
   'skips the comments, strings, and unrelated same-named matches that text search turns up.',
   "When you need \"where is X defined?\", call find_def with the symbol name instead of searching text.",
   '',
+  'Use find_refs to find who references a symbol. It resolves tsconfig aliases and barrel',
+  're-exports, so it finds callers grep misses and excludes same-named symbols in unrelated files —',
+  'much more precise than grepping a name. Prefer it for "what uses X?" / "who calls X?".',
+  '',
   "Every result is labeled with a precision tier so you can calibrate trust (currently",
   "'tree-sitter': structural and high-signal, but not compiler-exact).",
 ].join('\n');
+
+const FIND_REFS_DESCRIPTION = [
+  'Find where a symbol is referenced (its callers/consumers), following tsconfig path aliases and',
+  'barrel re-exports. Use when you need who uses a function, class, method, interface, type, or',
+  'constant — e.g. "what calls ActionRouterService?". More precise than text search: it resolves',
+  'which files actually import the symbol, so it excludes same-named symbols in unrelated files and',
+  'includes references reached through barrels. Each reference carries its kind (call/new/type/...)',
+  'and the definition it resolves to.',
+].join(' ');
 
 const FIND_DEF_DESCRIPTION = [
   'Find where a symbol is defined and show its signature.',
@@ -61,6 +75,28 @@ export async function serve(root: string): Promise<void> {
         logError('find_def failed:', err);
         return {
           content: [{ type: 'text', text: `find_def error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'find_refs',
+    {
+      title: 'Find symbol references',
+      description: FIND_REFS_DESCRIPTION,
+      inputSchema: findRefsInputShape,
+    },
+    async (args) => {
+      void counter.record('find_refs', args);
+      try {
+        const { text } = await runFindRefs(store, registry, root, args);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('find_refs failed:', err);
+        return {
+          content: [{ type: 'text', text: `find_refs error: ${err instanceof Error ? err.message : String(err)}` }],
           isError: true,
         };
       }

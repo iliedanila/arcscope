@@ -32,7 +32,14 @@ async function defsFor(grammarId: string, source: string): Promise<DefRecord[]> 
   const registry = new GrammarRegistry();
   const parser = await registry.ensureInit();
   const grammar = await registry.getGrammar(grammarId);
-  return extractDefs(parser, grammar.language, grammar.query, 'sample', source);
+  parser.setLanguage(grammar.language);
+  const tree = parser.parse(source);
+  if (!tree) return [];
+  try {
+    return extractDefs(grammar.query, 'sample', tree);
+  } finally {
+    tree.delete();
+  }
 }
 
 test('TS extraction covers all common definition kinds incl. augmented forms', async () => {
