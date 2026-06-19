@@ -1,0 +1,40 @@
+import { join } from 'node:path';
+import type { IndexStore } from '../engine/index-store.js';
+import { loadVocabulary } from '../knowledge/vocab-loader.js';
+import { resolveConcept } from '../knowledge/resolver.js';
+import { computeAnchors, compareDrift, loadAnchorStore, baselineFor } from '../knowledge/drift.js';
+
+export interface ArchListResult {
+  conceptCount: number;
+  text: string;
+}
+
+// List the repo's declared architecture concepts (progressive disclosure: names +
+// counts + freshness first). Resolved LIVE; read-only — never captures a baseline
+// (that's arch_query's job), so unqueried concepts show as "unverified".
+export async function runArchList(store: IndexStore, root: string): Promise<ArchListResult> {
+  await store.sync();
+  const vocab = loadVocabulary(join(root, '.arcscope', 'vocab.yaml'));
+  if (vocab.concepts.length === 0) {
+    return {
+      conceptCount: 0,
+      text: 'No architecture vocabulary found. Add named concepts to .arcscope/vocab.yaml (committed) to make this repo self-describing.',
+    };
+  }
+  const anchorStore = loadAnchorStore(root);
+  const lines = vocab.concepts.map((c) => {
+    const resolved = resolveConcept(store, c);
+    const baseline = baselineFor(anchorStore, c.id);
+    const freshness = baseline ? compareDrift(computeAnchors(root, resolved), baseline).status : 'unverified';
+    return `  ${c.id}${c.stages ? ' (staged)' : ''} — ${c.title} · ${resolved.length} location${resolved.length === 1 ? '' : 's'} [${freshness}]`;
+  });
+  return {
+    conceptCount: vocab.concepts.length,
+    text: [
+      `${vocab.concepts.length} architecture concept${vocab.concepts.length === 1 ? '' : 's'} (answered live against current code):`,
+      ...lines,
+      '',
+      'Use arch_query <id> to resolve one concept to its live locations (and capture/check its drift baseline).',
+    ].join('\n'),
+  };
+}
