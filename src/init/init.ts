@@ -102,7 +102,7 @@ const STARTER_VOCAB = `# .arcscope/vocab.yaml — this repo's architecture vocab
 # Two locator kinds:
 #   symbol  query: "<kind> <namePattern> [= <value>]"   in: "<glob>" (optional)
 #           kinds: interface | class | function | method | type | enum | const
-#           namePattern is a glob over the symbol name, e.g. I*Repository
+#           namePattern is a glob over the symbol name, e.g. *Repository
 #   path    glob:  "<glob>"                              in: "<glob>" (optional)
 #
 # Uncomment an example below, edit it to fit this repo, then run arch_list and
@@ -110,19 +110,18 @@ const STARTER_VOCAB = `# .arcscope/vocab.yaml — this repo's architecture vocab
 # \`stages:\` (a pipeline whose steps arch_query reports in order).
 
 concepts:
-  # repository-tokens:
-  #   title: Repository-token pattern (I{Name}Repository)
+  # public-api:
+  #   title: The package's public surface
   #   description: One-line summary the agent reads before diving into the code.
   #   locators:
-  #     - { kind: symbol, query: "interface I*Repository", in: "libs/data-access/**" }
-  #     - { kind: symbol, query: "const *_REPOSITORY = InjectionToken", in: "libs/**/tokens/**" }
-  #     - { kind: path,   glob: "apps/**/firestore-*.repository.ts" }
+  #     - { kind: path,   glob: "src/index.ts" }
+  #     - { kind: symbol, query: "interface *Options", in: "src/**" }
 
-  # editor-state-flow:
-  #   title: "Editor state pipeline: facade -> router -> reducer -> state"
+  # request-flow:
+  #   title: "Layered flow: handler -> service -> repository"
   #   description: Ordered stages — arch_query reports each stage's live location.
   #   stages:
-  #     - { title: Facade,  kind: symbol, query: "class *Facade",  in: "libs/**/services/**" }
-  #     - { title: Router,  kind: symbol, query: "class *Router",  in: "libs/**/services/**" }
-  #     - { title: Reducer, kind: symbol, query: "class *Reducer", in: "libs/**/state/**" }
+  #     - { title: Handler,    kind: symbol, query: "function handle*",  in: "src/**" }
+  #     - { title: Service,    kind: symbol, query: "class *Service",    in: "src/**" }
+  #     - { title: Repository, kind: symbol, query: "class *Repository", in: "src/**" }
 `;
