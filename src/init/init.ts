@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { GrammarRegistry } from '../engine/grammar-registry.js';
 import { IndexStore } from '../engine/index-store.js';
 
@@ -27,6 +27,14 @@ export async function init(root: string): Promise<void> {
 
   // 3. Keep regenerable local state out of git.
   if (ensureGitignore(root)) out('arcscope: updated .gitignore (.arcscope/* ignored, vocab.yaml committed)');
+
+  // 4. Scaffold a commented starter vocabulary for the agent's knowledge layer.
+  //    A template, never auto-generated concepts — authoring concepts is the
+  //    user's job, and auto-bootstrap stays out of v1.
+  const vocabPath = join(root, '.arcscope', 'vocab.yaml');
+  if (scaffoldVocab(vocabPath)) {
+    out(`arcscope: wrote ${relative(root, vocabPath)} (commented starter — author concepts, then arch_query)`);
+  }
 
   out('arcscope: ready — reconnect your MCP client to load the server.');
 }
@@ -72,3 +80,49 @@ export function ensureGitignore(root: string): boolean {
   writeFileSync(p, kept ? `${kept}\n\n${block}` : block, 'utf8');
   return true;
 }
+
+// A fully-commented starter so `arch_list` is empty (no fake concepts, no drift
+// noise) until the user authors real ones. Never clobber an existing vocab — it
+// is the repo's committed knowledge.
+export function scaffoldVocab(vocabPath: string): boolean {
+  if (existsSync(vocabPath)) return false;
+  mkdirSync(dirname(vocabPath), { recursive: true });
+  writeFileSync(vocabPath, STARTER_VOCAB, 'utf8');
+  return true;
+}
+
+const STARTER_VOCAB = `# .arcscope/vocab.yaml — this repo's architecture vocabulary.
+#
+# Named concepts, each bound to engine-resolved locators that arcscope answers
+# LIVE against the current code, so the answer never goes stale. Commit this
+# file; the rest of .arcscope/ is a regenerable local cache and is gitignored.
+#
+# Locators resolve through arcscope's own tree-sitter engine — NEVER a shell
+# command — so a committed manifest can't run code on a teammate's machine.
+# Two locator kinds:
+#   symbol  query: "<kind> <namePattern> [= <value>]"   in: "<glob>" (optional)
+#           kinds: interface | class | function | method | type | enum | const
+#           namePattern is a glob over the symbol name, e.g. I*Repository
+#   path    glob:  "<glob>"                              in: "<glob>" (optional)
+#
+# Uncomment an example below, edit it to fit this repo, then run arch_list and
+# arch_query <concept>. A concept may use a flat \`locators:\` list or ordered
+# \`stages:\` (a pipeline whose steps arch_query reports in order).
+
+concepts:
+  # repository-tokens:
+  #   title: Repository-token pattern (I{Name}Repository)
+  #   description: One-line summary the agent reads before diving into the code.
+  #   locators:
+  #     - { kind: symbol, query: "interface I*Repository", in: "libs/data-access/**" }
+  #     - { kind: symbol, query: "const *_REPOSITORY = InjectionToken", in: "libs/**/tokens/**" }
+  #     - { kind: path,   glob: "apps/**/firestore-*.repository.ts" }
+
+  # editor-state-flow:
+  #   title: "Editor state pipeline: facade -> router -> reducer -> state"
+  #   description: Ordered stages — arch_query reports each stage's live location.
+  #   stages:
+  #     - { title: Facade,  kind: symbol, query: "class *Facade",  in: "libs/**/services/**" }
+  #     - { title: Router,  kind: symbol, query: "class *Router",  in: "libs/**/services/**" }
+  #     - { title: Reducer, kind: symbol, query: "class *Reducer", in: "libs/**/state/**" }
+`;
