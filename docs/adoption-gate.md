@@ -117,7 +117,7 @@ Two scope notes (so expected answers are scored fairly):
   symbols (functions, classes, interfaces, types, exported constants). It does **not**
   resolve methods/object-properties referenced via member access (`obj.method()`) — it
   says so and points to alternatives.
-- **dep_graph is degree + neighborhood, no cycle detection** in v1.
+- **dep_graph is degree + neighborhood + cycle detection** (`cycles:true`); no ranking/PageRank in v1.
 
 ### find_refs (importable symbols)
 
@@ -138,7 +138,7 @@ callsite uses; find_refs splits them).
 | 5 | "Which libraries are most depended on by other modules — what are the architectural hubs?" | hubs by in-degree: `libs/domain` (417), `libs/utils` (174), `libs/data-access` (160) |
 | 6 | "I'm about to refactor `libs/features/graph`. Who depends on it — is it safe to change?" | focus that barrel → **imported-by 93** (reverse deps) + imports 132 |
 | 7 | "I need to understand the data layer: what does `libs/data-access` import, and what depends on it?" | focus → imports 26 (incl. domain), imported-by 160 |
-| 8 | "Show me how `utils` and `domain` are used across the project — are they truly foundational, low coupling?" | both are top hubs (utils 174 / domain 417 in-degree), few outgoing — foundational. (dep_graph shows degree/neighborhood, not cycles) |
+| 8 | "Are there any circular dependencies / import cycles in this codebase I should worry about?" | 5 cycle groups: a 4-file `libs/domain` model knot, a `plugin-registry`/runtime triangle, + three 2-file pairs (`dep_graph cycles:true`) |
 
 ### Levers (already applied / available)
 1. Server `instructions` + 2. each tool's `description` now cover find_refs/dep_graph (`serve.ts`).
