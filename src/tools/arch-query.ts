@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import type { IndexStore } from '../engine/index-store.js';
 import { loadVocabulary } from '../knowledge/vocab-loader.js';
-import { resolveConcept } from '../knowledge/resolver.js';
+import { resolveConceptSafe } from '../knowledge/resolver.js';
 import { computeAnchors, compareDrift, loadAnchorStore, baselineFor, captureBaseline } from '../knowledge/drift.js';
 import type { DriftReport } from '../knowledge/drift.js';
 import type { Concept, ResolvedLocation } from '../knowledge/types.js';
@@ -39,7 +39,14 @@ export async function runArchQuery(
     return { resolved: [], freshness: 'unknown', text: `No concept "${args.concept}" in the vocabulary.${known}` };
   }
 
-  const resolved = resolveConcept(store, concept);
+  const { locations: resolved, error } = resolveConceptSafe(store, concept);
+  if (error) {
+    return {
+      resolved: [],
+      freshness: 'error',
+      text: `Concept "${concept.id}" has an invalid locator: ${error}`,
+    };
+  }
 
   // Drift: capture a baseline on first query (or --reaccept), else compare.
   const current = computeAnchors(root, resolved);
