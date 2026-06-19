@@ -34,6 +34,35 @@ test('dep_graph hubs view ranks the most depended-on file', async () => {
   }
 });
 
+test('dep_graph cycles:true detects a circular dependency and is silent when acyclic', async () => {
+  const acyclic = fixture(); // a -> b -> c, a -> c (no cycle)
+  try {
+    const registry = new GrammarRegistry();
+    const store = new IndexStore(acyclic, registry);
+    const clean = await runDepGraph(store, acyclic, { cycles: true });
+    assert.equal(clean.cycles?.length, 0);
+    assert.match(clean.text, /acyclic/);
+  } finally {
+    rmSync(acyclic, { recursive: true, force: true });
+  }
+
+  // now a genuine cycle: x <-> y
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-cycle-'));
+  try {
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src/x.ts'), "import { y } from './y';\nexport const x = () => y;\n");
+    writeFileSync(join(dir, 'src/y.ts'), "import { x } from './x';\nexport const y = () => x;\n");
+    const registry = new GrammarRegistry();
+    const store = new IndexStore(dir, registry);
+    const { cycles, text } = await runDepGraph(store, dir, { cycles: true });
+    assert.equal(cycles?.length, 1);
+    assert.deepEqual(new Set(cycles?.[0]), new Set(['src/x.ts', 'src/y.ts']));
+    assert.match(text, /1 circular dependency group/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('dep_graph neighborhood lists imports and dependents of a focus file', async () => {
   const dir = fixture();
   try {

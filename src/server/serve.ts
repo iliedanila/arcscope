@@ -38,7 +38,8 @@ const DEP_GRAPH_DESCRIPTION = [
   'Show the module/file dependency graph from real import edges (resolving aliases + barrels).',
   'Use to understand structure: with no focus it returns the most depended-on files (hubs) and a',
   'module summary; with a focus file it returns that file\'s neighborhood — what it imports and what',
-  'imports it. Optionally a directory prefix focus, or a neighborhood depth (1-2). Token-bounded.',
+  'imports it; with cycles:true it finds circular dependencies (files that import each other).',
+  'Optionally a directory prefix focus, or a neighborhood depth (1-2). Token-bounded.',
 ].join(' ');
 
 const FIND_REFS_DESCRIPTION = [
