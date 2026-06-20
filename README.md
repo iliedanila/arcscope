@@ -38,6 +38,8 @@ concepts:
 
 `arch_query repository-tokens` resolves this against the _current_ tree and flags **drift** when the resolved set diverges from its accepted baseline — so a stale concept is a signal, not a surprise. Locators resolve through arcscope's own engine; a committed manifest can never run a shell command.
 
+Locators come in three kinds: `symbol` (a tree-sitter query), `path` (a glob), and `import` — every file that imports a module specifier, e.g. `{ kind: import, of: "@angular/fire/firestore" }`. The last lets a concept assert an **import boundary** ("who reaches for Firestore?") and drift-detect a new breach the moment it lands.
+
 ## How it works
 
 Three layers in one local Node process speaking MCP over stdio:

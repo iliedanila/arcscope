@@ -111,6 +111,42 @@ test('drift detects a changed definition signature (plausible-but-wrong case)', 
   }
 });
 
+test('an import locator resolves the live import perimeter and drifts on a new importer', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-arch-'));
+  try {
+    mkdirSync(join(dir, '.arcscope'), { recursive: true });
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src/a.ts'), "import { initFirestore } from '@ext/firestore';\nexport const a = 1;\n");
+    writeFileSync(join(dir, 'src/b.ts'), "import { lite } from '@ext/firestore/lite';\nexport const b = 2;\n"); // subpath counts
+    writeFileSync(join(dir, 'src/c.ts'), "import { other } from '@other/pkg';\nexport const c = 3;\n"); // must NOT match
+    writeFileSync(
+      join(dir, '.arcscope/vocab.yaml'),
+      [
+        'concepts:',
+        '  firestore-boundary:',
+        '    title: Firestore import perimeter',
+        '    locators:',
+        '      - { kind: import, of: "@ext/firestore" }',
+      ].join('\n'),
+    );
+    const store = new IndexStore(dir, new GrammarRegistry());
+
+    const first = await runArchQuery(store, dir, { concept: 'firestore-boundary' });
+    assert.deepEqual(first.resolved.map((r) => r.file).sort(), ['src/a.ts', 'src/b.ts']); // c.ts excluded
+    assert.ok(first.resolved.every((r) => r.via === 'import'));
+    assert.match(first.freshness, /baseline captured/);
+    assert.match(first.text, /src\/a\.ts {2}\[imports\]/);
+
+    // a new file breaches the perimeter -> drift (added)
+    writeFileSync(join(dir, 'src/d.ts'), "import { sneaky } from '@ext/firestore';\nexport const d = 4;\n");
+    const after = await runArchQuery(store, dir, { concept: 'firestore-boundary' });
+    assert.equal(after.drift?.status, 'drifted');
+    assert.ok(after.drift?.added.some((k) => k.includes('src/d.ts')));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a malformed locator degrades per-concept — it never blanks the whole layer', async () => {
   // One typo in a committed vocab.yaml (a symbol query with no kind) must not
   // throw away every valid concept. arch_list keeps listing the good ones and

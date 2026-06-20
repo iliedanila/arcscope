@@ -59,6 +59,20 @@ function resolveLocator(store: IndexStore, loc: Locator): ResolvedLocation[] {
         precisionTier: 'tree-sitter' as const,
       }));
   }
+  if (loc.kind === 'import') {
+    // The import perimeter: distinct files whose import/re-export edges name this
+    // specifier (exactly or a subpath of it). Pure string match over already-
+    // extracted edges — no module resolution, no config read, no shell-out.
+    const importers = new Set<string>();
+    for (const e of store.allEdges()) {
+      if (e.specifier === loc.of || e.specifier.startsWith(loc.of + '/')) {
+        if (loc.in === undefined || matchGlob(e.file, loc.in)) importers.add(e.file);
+      }
+    }
+    return [...importers]
+      .sort()
+      .map((f) => ({ file: f, kind: 'file', via: 'import' as const, precisionTier: 'tree-sitter' as const }));
+  }
   return [...store.relFileSet()]
     .filter((f) => matchGlob(f, loc.glob) && (loc.in === undefined || matchGlob(f, loc.in)))
     .sort()

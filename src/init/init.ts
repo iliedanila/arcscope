@@ -99,11 +99,14 @@ const STARTER_VOCAB = `# .arcscope/vocab.yaml — this repo's architecture vocab
 #
 # Locators resolve through arcscope's own tree-sitter engine — NEVER a shell
 # command — so a committed manifest can't run code on a teammate's machine.
-# Two locator kinds:
+# Three locator kinds:
 #   symbol  query: "<kind> <namePattern> [= <value>]"   in: "<glob>" (optional)
 #           kinds: interface | class | function | method | type | enum | const
 #           namePattern is a glob over the symbol name, e.g. *Repository
 #   path    glob:  "<glob>"                              in: "<glob>" (optional)
+#   import  of:    "<module-specifier>"                  in: "<glob>" (optional)
+#           every file importing that module (exact or a subpath) — an import
+#           boundary; drift flags a new importer the moment it appears
 #
 # Uncomment an example below, edit it to fit this repo, then run arch_list and
 # arch_query <concept>. A concept may use a flat \`locators:\` list or ordered
@@ -124,4 +127,10 @@ concepts:
   #     - { title: Handler,    kind: symbol, query: "function handle*",  in: "src/**" }
   #     - { title: Service,    kind: symbol, query: "class *Service",    in: "src/**" }
   #     - { title: Repository, kind: symbol, query: "class *Repository", in: "src/**" }
+
+  # filesystem-boundary:
+  #   title: Who imports the filesystem
+  #   description: An import boundary — arch_query flags any new file that reaches for fs.
+  #   locators:
+  #     - { kind: import, of: "node:fs" }
 `;

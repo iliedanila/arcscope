@@ -36,6 +36,10 @@ export function computeAnchors(root: string, resolved: ResolvedLocation[]): Anch
     let anchor: Anchor;
     if (r.via === 'symbol') {
       anchor = { key: `${r.file}#${r.symbol}`, hash: sha1(`${r.kind} ${r.signature ?? ''}`) };
+    } else if (r.via === 'import') {
+      // Import perimeter: drift on SET membership (who imports), not file content —
+      // editing an importer is not a boundary change; gaining/losing one is.
+      anchor = { key: `import:${r.file}`, hash: 'present' };
     } else {
       let content = fileCache.get(r.file);
       if (content === undefined) {

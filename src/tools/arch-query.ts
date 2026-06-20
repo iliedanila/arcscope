@@ -102,6 +102,6 @@ export function formatConcept(
 }
 
 function formatLoc(r: ResolvedLocation): string {
-  if (r.via === 'path') return `${r.file}  [file]`;
-  return `${r.file}:${r.line}  [${r.kind}]  ${r.signature ?? ''}`.trimEnd();
+  if (r.via === 'symbol') return `${r.file}:${r.line}  [${r.kind}]  ${r.signature ?? ''}`.trimEnd();
+  return `${r.file}  [${r.via === 'import' ? 'imports' : 'file'}]`;
 }
