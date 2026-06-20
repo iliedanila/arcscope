@@ -1,6 +1,6 @@
 {
   "name": "arcscope",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Fully-local, architecture-aware code-navigation MCP server. tree-sitter breadth + a repo-declared architecture vocabulary answered live.",
   "type": "module",
   "author": "Ilie Danila",

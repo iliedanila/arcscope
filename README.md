@@ -2,7 +2,7 @@
 
 A fully-local MCP server that gives an AI coding agent three stacked views of an unfamiliar codebase — **symbols**, the **module/dependency graph**, and a repo-declared **architecture vocabulary** answered _live_ against current code — so it stops re-deriving structure with grep every session.
 
-**Status:** early preview (`v0.0.1`). The v1 slice — all three layers — works end-to-end. TS / JS / TSX.
+**Status:** early preview. The v1 slice — all three layers — works end-to-end. TS / JS / TSX.
 
 ```bash
 npm i -D arcscope
@@ -40,6 +40,30 @@ concepts:
 
 Locators come in three kinds: `symbol` (a tree-sitter query), `path` (a glob), and `import` — every file that imports a module specifier, e.g. `{ kind: import, of: "@angular/fire/firestore" }`. The last lets a concept assert an **import boundary** ("who reaches for Firestore?") and drift-detect a new breach the moment it lands.
 
+### Drift in practice
+
+After authoring a concept, resolve it (these run as MCP tools inside your agent). The **first** query records a baseline; later queries compare against it:
+
+```
+arch_query data-layer
+# Concept `data-layer` — Data-access repositories (7 locations, fresh (baseline captured)):
+#   src/users/user.repository.ts:12   [class]  class UserRepository   ← precision: tree-sitter
+#   …
+
+#  … later, someone adds src/audit/audit.repository.ts …
+
+arch_query data-layer
+# Concept `data-layer` — Data-access repositories (8 locations, DRIFTED):
+#   …
+#   ⚠ DRIFT vs baseline: 1 added, 0 removed, 0 changed.
+#     + src/audit/audit.repository.ts#AuditRepository
+#   If this change is correct, re-run arch_query with reaccept:true to update the baseline.
+
+arch_query data-layer reaccept:true     # accept the new shape → fresh again
+```
+
+The concept can't silently rot: it's recomputed every call, and the baseline turns a divergence into a signal instead of a stale lie.
+
 ## How it works
 
 Three layers in one local Node process speaking MCP over stdio:
@@ -49,5 +73,15 @@ Three layers in one local Node process speaking MCP over stdio:
 - **Knowledge** — the live architecture vocabulary above. The net-new, defensible layer.
 
 See the full design, roadmap, and the reasoning behind every constraint: [`docs/arcscope-spec.html`](docs/arcscope-spec.html).
+
+## Precision tiers & limits
+
+Every result carries a `precisionTier` so the agent can calibrate trust. v1 has one tier — **`tree-sitter`**: structural and high-signal, but not compiler-exact. arcscope never presents a heuristic as compiler-accurate; an LSP-backed precise tier is deliberately deferred.
+
+What that means in practice:
+
+- **`find_refs` resolves through imports.** It follows tsconfig path aliases and **same-name** barrel re-exports (1-hop). It does **not** follow a renamed re-export (`export { X as Y }`), and it does **not** see a symbol reached via **member access** (`obj.method()`), used only within its own file, or imported via namespace/default. For member access, grep `.name` or `find_refs` the declaring class — that precision is the deferred tier's job, not v1's.
+- **Module grouping is general-first** — directory structure + import-graph clustering, never a build tool's project model (`nx.json`, BUILD files).
+- **TS / JS / TSX only** in v1.
 
 > Building with Claude Code? Start at [`CLAUDE.md`](CLAUDE.md).

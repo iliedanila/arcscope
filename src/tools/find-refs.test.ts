@@ -61,6 +61,26 @@ test('find_refs handles JavaScript referencing files (JS grammar has no type_ide
   }
 });
 
+test('find_refs gives an honest out-of-tier hint for a member-access-only method', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-refs-mem-'));
+  try {
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src/svc.ts'), 'export class Svc {\n  doThing() { return 1; }\n}\n');
+    // reached only via member access on an instance — never imported by the name `doThing`
+    writeFileSync(join(dir, 'src/use.ts'), "import { Svc } from './svc';\nconst s = new Svc();\nexport const r = s.doThing();\n");
+    const registry = new GrammarRegistry();
+    const store = new IndexStore(dir, registry);
+    const { records, text } = await runFindRefs(store, registry, dir, { symbol: 'doThing' });
+
+    assert.equal(records.length, 0); // import-resolution can't see member access
+    assert.match(text, /member access/);
+    assert.match(text, /deferred \(compiler-accurate\) tier/);
+    assert.match(text, /grep `\.doThing`/); // actionable fallback
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('find_refs scopes by pathGlob and reports unknown symbols', async () => {
   const dir = fixture();
   try {
