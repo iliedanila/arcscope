@@ -1,6 +1,25 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import yaml from 'js-yaml';
-import type { Concept, Locator, Stage, Vocabulary } from './types.js';
+import type { Concept, Invariant, Locator, Stage, Vocabulary } from './types.js';
+
+// Load the repo's full knowledge: the human-authored, committed, commented
+// vocab.yaml merged with the agent-written assertions.yaml (written via
+// arch_assert). Each concept is stamped with its provenance (`source`) so trust is
+// calibrated. On an id collision the human vocab wins (an explicit human concept
+// overrides an agent assertion of the same name).
+export function loadKnowledge(root: string): Vocabulary {
+  const vocab = loadVocabulary(join(root, '.arcscope', 'vocab.yaml')).concepts.map(
+    (c): Concept => ({ ...c, source: 'vocab' }),
+  );
+  const agent = loadVocabulary(join(root, '.arcscope', 'assertions.yaml')).concepts.map(
+    (c): Concept => ({ ...c, source: 'agent' }),
+  );
+  const byId = new Map<string, Concept>();
+  for (const c of agent) byId.set(c.id, c);
+  for (const c of vocab) byId.set(c.id, c); // human overrides agent on collision
+  return { concepts: [...byId.values()] };
+}
 
 // Load and validate .arcscope/vocab.yaml. The file is hand-authored and committed
 // (the repo's declared knowledge), so we fail loud on a malformed shape rather than
@@ -38,7 +57,18 @@ function parseConcept(id: string, value: unknown): Concept {
   } else {
     throw new Error(`concept "${id}" must have a "locators" or "stages" list`);
   }
+  if (value['must'] !== undefined) concept.must = parseInvariant(id, value['must']);
   return concept;
+}
+
+function parseInvariant(conceptId: string, value: unknown): Invariant {
+  if (!isRecord(value) || !Array.isArray(value['locators'])) {
+    throw new Error(`concept "${conceptId}" must.locators must be a list of locators`);
+  }
+  return {
+    title: typeof value['title'] === 'string' ? value['title'] : undefined,
+    locators: value['locators'].map((l, i) => parseLocator(`${conceptId}.must.locators[${i}]`, l)),
+  };
 }
 
 function parseStage(conceptId: string, i: number, value: unknown): Stage {
