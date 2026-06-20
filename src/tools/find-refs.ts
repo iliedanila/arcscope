@@ -95,13 +95,18 @@ function format(
 ): string {
   const scope = pathGlob ? ` within \`${pathGlob}\`` : '';
   if (records.length === 0) {
-    // find_refs is import-resolution based, so a symbol that is never imported by
-    // name (a method/object-property invoked via member access, used only in its
-    // own file, or reached via namespace/default import) yields nothing. Say so.
-    const memberHint = kinds.has('method') ? ` Since \`${symbol}\` is (or includes) a method, it is invoked via member access (\`obj.${symbol}()\`) — find_refs its declaring class/interface, or grep \`.${symbol}\`.` : '';
+    // find_refs is import-resolution based, so a symbol never imported by name
+    // (member access, same-file-only use, or namespace/default import) yields
+    // nothing. Member access is the dominant cause and is the deferred
+    // compiler-accurate tier's job, so ALWAYS give the actionable fallback —
+    // never present its absence as "no callers". Sharper when we know it's a method.
+    const memberHint = kinds.has('method')
+      ? ` \`${symbol}\` is a method, so it is invoked via member access (\`obj.${symbol}()\`), which import-resolution cannot follow — that is the deferred (compiler-accurate) tier, not in v1.`
+      : ` If \`${symbol}\` is invoked via member access (\`obj.${symbol}()\`), import-resolution cannot follow it — that is the deferred (compiler-accurate) tier, not in v1.`;
     return (
-      `No import-resolved references to \`${symbol}\`${scope} (${defCount} definition${defCount === 1 ? '' : 's'}). find_refs follows imports, so it does not find a symbol referenced only via member access, used only within its own file, or reached through namespace/default imports.` +
-      memberHint
+      `No import-resolved references to \`${symbol}\`${scope} (${defCount} definition${defCount === 1 ? '' : 's'}). find_refs follows imports, so it does not see a symbol used only within its own file or reached through namespace/default imports.` +
+      memberHint +
+      ` To find member-access call sites, grep \`.${symbol}\` or find_refs its declaring class/interface.`
     );
   }
   const defNote = defCount > 1 ? ` (${defCount} definitions share this name; refs are split by the one they resolve to)` : '';

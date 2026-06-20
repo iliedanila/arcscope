@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2026-06-20
+
+### Changed
+
+- `find_refs` now gives an honest, actionable message when a symbol has no
+  import-resolved references: it always names **member access** (`obj.method()`)
+  as the deferred compiler-accurate tier (out of scope for v1's tree-sitter tier)
+  and points to the fallback (grep `.name`, or `find_refs` the declaring class),
+  instead of only hinting when the symbol happened to be a method.
+- README: added a copy-pasteable **drift walkthrough** (fresh → DRIFTED →
+  reaccept) and a **"Precision tiers & limits"** section documenting the
+  tree-sitter tier's boundaries (member access, renamed re-exports, 1-hop
+  barrels, general-first grouping, TS/JS/TSX-only). Dropped the hardcoded
+  version from the status line so it can't go stale.
+
 ## [0.0.3] - 2026-06-20
 
 ### Added
@@ -48,6 +63,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `arch_query` — and an `init` / `serve` bin. TS / JS / TSX, no network at query
   time or server spawn.
 
+[0.0.4]: https://github.com/iliedanila/arcscope/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/iliedanila/arcscope/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/iliedanila/arcscope/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/iliedanila/arcscope/releases/tag/v0.0.1
