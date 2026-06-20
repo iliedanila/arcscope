@@ -27,7 +27,7 @@
     "build": "shx rm -rf dist && tsc -p tsconfig.build.json && shx cp -r vendor/grammars dist/grammars && shx chmod +x dist/index.js",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')",
     "vendor:grammars": "shx cp node_modules/web-tree-sitter/web-tree-sitter.wasm vendor/grammars/ && shx cp node_modules/tree-sitter-typescript/tree-sitter-typescript.wasm node_modules/tree-sitter-typescript/tree-sitter-tsx.wasm node_modules/tree-sitter-javascript/tree-sitter-javascript.wasm vendor/grammars/ && shx cp node_modules/tree-sitter-typescript/queries/tags.scm vendor/grammars/typescript-tags.scm && shx cp node_modules/tree-sitter-javascript/queries/tags.scm vendor/grammars/javascript-tags.scm"
   },
   "keywords": [
