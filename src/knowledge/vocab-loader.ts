@@ -59,7 +59,11 @@ function parseLocator(where: string, value: unknown): Locator {
     if (typeof value['glob'] !== 'string') throw new Error(`${where} (path) needs a "glob" string`);
     return { kind: 'path', glob: value['glob'], in: inGlob };
   }
-  throw new Error(`${where} has unknown kind ${JSON.stringify(value['kind'])} (v1 supports: symbol, path)`);
+  if (value['kind'] === 'import') {
+    if (typeof value['of'] !== 'string') throw new Error(`${where} (import) needs an "of" module-specifier string`);
+    return { kind: 'import', of: value['of'], in: inGlob };
+  }
+  throw new Error(`${where} has unknown kind ${JSON.stringify(value['kind'])} (v1 supports: symbol, path, import)`);
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

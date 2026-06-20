@@ -45,6 +45,25 @@ test('loads concepts with locators and ordered stages', () => {
   );
 });
 
+test('parses an import locator (of module specifier, optional in)', () => {
+  withYaml(
+    [
+      'concepts:',
+      '  firestore-boundary:',
+      '    title: Firestore import perimeter',
+      '    locators:',
+      '      - { kind: import, of: "@angular/fire/firestore", in: "apps/**" }',
+    ].join('\n'),
+    (p) => {
+      const loc = loadVocabulary(p).concepts[0]?.locators?.[0];
+      assert.deepEqual(loc, { kind: 'import', of: '@angular/fire/firestore', in: 'apps/**' });
+    },
+  );
+  withYaml('concepts:\n  bad:\n    locators:\n      - { kind: import, glob: x }\n', (p) => {
+    assert.throws(() => loadVocabulary(p), /import.*needs an "of"/);
+  });
+});
+
 test('missing file -> empty; malformed concept/locator -> clear error', () => {
   assert.equal(loadVocabulary('/no/such/vocab.yaml').concepts.length, 0);
   withYaml('concepts:\n  bad:\n    title: x\n', (p) => {
