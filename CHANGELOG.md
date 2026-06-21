@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-06-21
+
+### Fixed
+
+- Documentation accuracy. An adversarial audit of the README against the source
+  corrected five real inaccuracies: `find_refs` is no longer credited with
+  `call_graph`'s concrete-implementation/DI resolution (it uses `findReferences`);
+  the method path is noted as compiler-exact only when a `tsconfig` governs the file;
+  the `init`, `flow`, and drift examples were made faithful to actual tool output.
+- `arcscope init` help text now lists the `.arcscope/vocab.yaml` scaffold it writes,
+  and drops the misleading "index this repo" (the live index is built at server start,
+  not persisted from `init`).
+
 ## [0.1.0] - 2026-06-21
 
 A major expansion: an agent-authored knowledge layer and a compiler-exact precise
