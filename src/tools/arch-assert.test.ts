@@ -61,7 +61,7 @@ test('A→B: an asserted concept persists and a fresh session inherits it + its 
     await storeA.sync();
     await runArchAssert(dir, DOCUMENT_COPY);
     assert.ok(existsSync(join(dir, '.arcscope/assertions.yaml')), 'assertion persisted to disk');
-    // The human vocab.yaml was never written — this knowledge is purely agent-authored.
+    // assertions.yaml is the single knowledge source — no legacy human-authored vocab.yaml.
     assert.ok(!existsSync(join(dir, '.arcscope/vocab.yaml')));
 
     // ── Session B: a brand-new store (no carryover) reads the assertion off disk. ──
@@ -112,7 +112,7 @@ test('fixing the orphan clears the violation (conformance re-checks live)', asyn
   }
 });
 
-test('arch_list shows the agent-asserted concept with provenance', async () => {
+test('arch_list shows the asserted concept', async () => {
   const dir = fixture();
   try {
     const storeA = new IndexStore(dir, new GrammarRegistry());
@@ -122,7 +122,7 @@ test('arch_list shows the agent-asserted concept with provenance', async () => {
     const storeB = new IndexStore(dir, new GrammarRegistry());
     const list = await runArchList(storeB, dir);
     assert.equal(list.conceptCount, 1);
-    assert.match(list.text, /document-copy \[agent\] — Document copy paths/);
+    assert.match(list.text, /document-copy — Document copy paths/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

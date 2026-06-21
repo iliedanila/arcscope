@@ -27,8 +27,8 @@ export interface ArchQueryResult {
 }
 
 // Resolve one named concept LIVE against the current tree — never cached prose.
-// Merges the human vocab with agent-written assertions, flags drift, and (when the
-// concept declares a `must` invariant) re-checks conformance every call.
+// Loads the agent-written assertions, flags drift, and (when the concept declares a
+// `must` invariant) re-checks conformance every call.
 export async function runArchQuery(
   store: IndexStore,
   root: string,
@@ -41,7 +41,7 @@ export async function runArchQuery(
   if (!concept) {
     const known = vocab.concepts.length
       ? ` Known concepts: ${vocab.concepts.map((c) => c.id).join(', ')}.`
-      : ' (.arcscope/vocab.yaml is missing or empty.)';
+      : ' (.arcscope/assertions.yaml is missing or empty — record one with arch_assert.)';
     return { resolved: [], freshness: 'unknown', text: `No concept "${args.concept}" in the vocabulary.${known}` };
   }
 
@@ -116,8 +116,7 @@ async function runFlowConcept(
     freshness = drift.status === 'drifted' ? 'DRIFTED' : 'fresh';
   }
 
-  const src = concept.source === 'agent' ? ' [agent-asserted]' : '';
-  const lines = [`Flow concept \`${concept.id}\`${src} — ${concept.title} (${fr.members.length} functions, ${freshness}):`];
+  const lines = [`Flow concept \`${concept.id}\` — ${concept.title} (${fr.members.length} functions, ${freshness}):`];
   if (concept.description) lines.push(`  ${concept.description}`);
   if (concept.note) lines.push(`  note: ${concept.note}`);
   lines.push('', fr.text);
@@ -138,8 +137,7 @@ export function formatConcept(
   conformance?: ConformanceReport,
 ): string {
   const tag = freshness ? `, ${freshness}` : ', answered live';
-  const src = concept.source === 'agent' ? ' [agent-asserted]' : '';
-  const head = `Concept \`${concept.id}\`${src} — ${concept.title} (${resolved.length} location${resolved.length === 1 ? '' : 's'}${tag}):`;
+  const head = `Concept \`${concept.id}\` — ${concept.title} (${resolved.length} location${resolved.length === 1 ? '' : 's'}${tag}):`;
   const body: string[] = [];
   if (concept.description) body.push(`  ${concept.description}`);
 

@@ -58,7 +58,6 @@ export interface Concept {
   stages?: Stage[];
   must?: Invariant; // optional conformance rule (v2)
   flow?: FlowBinding; // a flow concept (precise tier) instead of locators/stages
-  source?: 'vocab' | 'agent'; // provenance: human-authored vs agent-asserted (assigned at load)
 }
 
 export interface Vocabulary {

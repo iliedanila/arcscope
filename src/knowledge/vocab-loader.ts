@@ -1,36 +1,26 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import yaml from 'js-yaml';
 import type { Concept, Invariant, Locator, Stage, Vocabulary } from './types.js';
 
-// Load the repo's full knowledge: the human-authored, committed, commented
-// vocab.yaml merged with the agent-written assertions.yaml (written via
-// arch_assert). Each concept is stamped with its provenance (`source`) so trust is
-// calibrated. On an id collision the human vocab wins (an explicit human concept
-// overrides an agent assertion of the same name).
+// Load the repo's knowledge: the agent-written, committed .arcscope/assertions.yaml
+// (written via arch_assert). It is the single source of architecture concepts — each
+// one is an assertion re-resolved live against current code on read, never a
+// hand-edited fact that can silently rot.
 export function loadKnowledge(root: string): Vocabulary {
-  const vocab = loadVocabulary(join(root, '.arcscope', 'vocab.yaml')).concepts.map(
-    (c): Concept => ({ ...c, source: 'vocab' }),
-  );
-  const agent = loadVocabulary(join(root, '.arcscope', 'assertions.yaml')).concepts.map(
-    (c): Concept => ({ ...c, source: 'agent' }),
-  );
-  const byId = new Map<string, Concept>();
-  for (const c of agent) byId.set(c.id, c);
-  for (const c of vocab) byId.set(c.id, c); // human overrides agent on collision
-  return { concepts: [...byId.values()] };
+  return loadVocabulary(join(root, '.arcscope', 'assertions.yaml'));
 }
 
-// Load and validate .arcscope/vocab.yaml. The file is hand-authored and committed
-// (the repo's declared knowledge), so we fail loud on a malformed shape rather than
-// silently dropping concepts. Returns an empty vocabulary if the file is absent.
+// Load and validate a knowledge YAML file. Concepts are committed (they travel with
+// the repo), so we fail loud on a malformed shape rather than silently dropping
+// concepts. Returns an empty vocabulary if the file is absent.
 export function loadVocabulary(vocabPath: string): Vocabulary {
   if (!existsSync(vocabPath)) return { concepts: [] };
   let raw: unknown;
   try {
     raw = yaml.load(readFileSync(vocabPath, 'utf8'));
   } catch (err) {
-    throw new Error(`vocab.yaml is not valid YAML: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`${basename(vocabPath)} is not valid YAML: ${err instanceof Error ? err.message : String(err)}`);
   }
   const conceptsObj = isRecord(raw) && isRecord(raw['concepts']) ? raw['concepts'] : {};
   const concepts: Concept[] = [];

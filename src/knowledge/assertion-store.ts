@@ -5,7 +5,7 @@ import type { Invariant, Locator } from './types.js';
 
 // What the agent records via arch_assert: a named concept = a binding (member
 // locators) + an optional invariant. Never a bare list of files — always locators,
-// so it re-resolves live (see docs/arcscope-v2-spec.md §3).
+// so it re-resolves live.
 export interface AssertionInput {
   id: string;
   title: string;
@@ -16,8 +16,8 @@ export interface AssertionInput {
 }
 
 // Append/update one assertion in the agent-owned .arcscope/assertions.yaml,
-// preserving any other agent concepts. This file is machine-written (no human
-// comments to clobber) and merged with the human vocab.yaml at load time.
+// preserving any other agent concepts. This file is machine-written and committed —
+// the single source of the repo's architecture knowledge, re-verified live on read.
 export function writeAssertion(root: string, a: AssertionInput): string {
   const path = join(root, '.arcscope', 'assertions.yaml');
   const concepts: Record<string, unknown> = {};

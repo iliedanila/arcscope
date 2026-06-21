@@ -7,7 +7,7 @@ import { loadVocabulary } from './vocab-loader.js';
 
 function withYaml(yaml: string, fn: (path: string) => void): void {
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-vocab-'));
-  const p = join(dir, 'vocab.yaml');
+  const p = join(dir, 'assertions.yaml');
   writeFileSync(p, yaml);
   try {
     fn(p);
@@ -65,7 +65,7 @@ test('parses an import locator (of module specifier, optional in)', () => {
 });
 
 test('missing file -> empty; malformed concept/locator -> clear error', () => {
-  assert.equal(loadVocabulary('/no/such/vocab.yaml').concepts.length, 0);
+  assert.equal(loadVocabulary('/no/such/assertions.yaml').concepts.length, 0);
   withYaml('concepts:\n  bad:\n    title: x\n', (p) => {
     assert.throws(() => loadVocabulary(p), /locators.*or.*stages/);
   });

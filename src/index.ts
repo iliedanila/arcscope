@@ -22,7 +22,7 @@ try {
       process.stderr.write(
         'arcscope — fully-local, architecture-aware code-navigation MCP server\n\n' +
           'Usage:\n' +
-          '  arcscope init    Set up this repo: write .mcp.json, update .gitignore, scaffold .arcscope/vocab.yaml\n' +
+          '  arcscope init    Set up this repo: index once, write .mcp.json, update .gitignore\n' +
           '  arcscope serve   Run the MCP server over stdio (spawned by your MCP client)\n',
       );
       process.exit(command ? 1 : 0);

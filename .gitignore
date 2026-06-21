@@ -2,15 +2,18 @@ node_modules/
 dist/
 *.log
 
-# arcscope: ignore the local cache (index/usage/anchors); commit the vocabulary
+# arcscope: ignore the local cache (index/usage/anchors); commit the knowledge
 .arcscope/*
-!.arcscope/vocab.yaml
+!.arcscope/assertions.yaml
 
 # machine-specific MCP registration (regenerate with `arcscope init`)
 .mcp.json
 
 # scratch / de-risking spikes (local only)
 spike/
+
+# internal design/spec docs — kept locally, not published to the public repo
+docs/
 
 # editor / OS
 .DS_Store

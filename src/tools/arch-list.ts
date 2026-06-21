@@ -17,18 +17,17 @@ export async function runArchList(store: IndexStore, root: string): Promise<Arch
   if (vocab.concepts.length === 0) {
     return {
       conceptCount: 0,
-      text: 'No architecture vocabulary found. Add named concepts to .arcscope/vocab.yaml (committed) to make this repo self-describing.',
+      text: 'No architecture vocabulary found. Record named concepts with arch_assert (committed to .arcscope/assertions.yaml) to make this repo self-describing.',
     };
   }
   const anchorStore = loadAnchorStore(root);
   const lines = vocab.concepts.map((c) => {
-    const provenance = c.source === 'agent' ? ' [agent]' : '';
     if (c.flow) {
       const recorded = baselineFor(anchorStore, c.id) ? 'recorded' : 'unverified';
-      return `  ${c.id} (flow)${provenance} — ${c.title} · from ${c.flow.entry} [${recorded}] (arch_query to recompute live)`;
+      return `  ${c.id} (flow) — ${c.title} · from ${c.flow.entry} [${recorded}] (arch_query to recompute live)`;
     }
     const { locations: resolved, error } = resolveConceptSafe(store, c);
-    const label = `  ${c.id}${c.stages ? ' (staged)' : ''}${provenance} — ${c.title}`;
+    const label = `  ${c.id}${c.stages ? ' (staged)' : ''} — ${c.title}`;
     if (error) return `${label} · ⚠ invalid locator: ${error}`;
     const baseline = baselineFor(anchorStore, c.id);
     const freshness = baseline ? compareDrift(computeAnchors(root, resolved), baseline).status : 'unverified';

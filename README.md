@@ -6,7 +6,7 @@ A fully-local MCP server that gives an AI coding agent precise views of an unfam
 
 ```bash
 npm i -D arcscope
-npx arcscope init        # write an offline .mcp.json, update .gitignore, scaffold .arcscope/vocab.yaml
+npx arcscope init        # index once, write an offline .mcp.json, update .gitignore
 # restart your MCP client (e.g. Claude Code) — it reads .mcp.json and connects
 ```
 
@@ -51,7 +51,7 @@ flow forkDocument
 
 ## The architecture vocabulary — the differentiator
 
-Where other tools keep project knowledge as static prose that silently rots, arcscope binds each named concept to an **executable locator recomputed on every query**. Declare your architecture in a committed `.arcscope/vocab.yaml`:
+Where other tools keep project knowledge as static prose that silently rots, arcscope binds each named concept to an **executable locator recomputed on every query**. The knowledge is **agent-authored, not hand-edited**: as the agent works out a concept, it records it with `arch_assert` into a committed `.arcscope/assertions.yaml` — a binding of locators, never a frozen list — so a later session inherits it. One concept looks like:
 
 ```yaml
 concepts:
@@ -63,9 +63,9 @@ concepts:
       - { kind: path,   glob: "apps/**/firestore-*.repository.ts" }
 ```
 
-`arch_query repository-tokens` resolves this against the _current_ tree and flags **drift** when the resolved set diverges from its accepted baseline. Locators come in three kinds — `symbol` (a tree-sitter query), `path` (a glob), and `import` (every file importing a module specifier) — and resolve through arcscope's own engine; a committed manifest can never run a shell command.
+`arch_query repository-tokens` resolves this against the _current_ tree and flags **drift** when the resolved set diverges from its accepted baseline. Locators come in three kinds — `symbol` (a tree-sitter query), `path` (a glob), and `import` (every file importing a module specifier) — and resolve through arcscope's own engine; a committed assertion can never run a shell command.
 
-**The agent contributes, too.** It can `arch_assert` a concept it worked out — bound to live locators, never a frozen list — so a later session inherits it. Three things keep an agent-written assertion honest:
+Three things keep an agent-written assertion honest:
 
 - a **`must`** invariant — a rule every member must satisfy, re-checked live (**conformance**); a violation surfaces on every query, not when it ships.
 - **`arch_candidates`** — finds the members a binding *missed*, by AST-shape similarity (name-independent, so it catches a hand-copied re-implementation that shares no name or import). The "fixed it twice" antidote.
@@ -96,8 +96,6 @@ One local Node process speaking MCP over stdio, in tiers:
 - **Graph** — a derived view over those import edges (dependency graph, cycles), grouped by directory + import-clustering — never a build tool's project model (`nx.json`, BUILD files).
 - **Knowledge** — the live, agent-authored architecture vocabulary above.
 - **Precise tier (TypeScript)** — a local `ts.Program` + language service, built lazily per `tsconfig` and cached, powering the call graph, flow surface, and compiler-exact method references.
-
-See the full design and reasoning: [`docs/arcscope-spec.html`](docs/arcscope-spec.html) (v1), [`docs/arcscope-v2-spec.md`](docs/arcscope-v2-spec.md) (agent-authored assertions), [`docs/arcscope-precise-tier-spec.md`](docs/arcscope-precise-tier-spec.md) (the precise tier).
 
 ## Precision tiers & limits
 

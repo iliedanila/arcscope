@@ -31,7 +31,7 @@ export interface ConceptResolution {
 }
 
 // Resolve a concept without throwing on a malformed locator. A committed
-// vocab.yaml travels to every teammate, so a single authoring slip (e.g. a
+// assertions.yaml travels to every teammate, so a single authoring slip (e.g. a
 // symbol query missing its kind) must not blank the whole Knowledge layer: the
 // error is reported per-concept (loud, never silently dropped) while siblings
 // still resolve. Both arch tools route through here.

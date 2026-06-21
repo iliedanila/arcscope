@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- The human-editable `.arcscope/vocab.yaml`. The knowledge layer is now
+  **agent-authored only**: a single committed `.arcscope/assertions.yaml` written via
+  `arch_assert`, re-verified live on read. `init` no longer scaffolds a starter vocab;
+  `.gitignore` now commits `assertions.yaml`. The `source`/provenance distinction
+  (`[agent]` / `[agent-asserted]` labels) is gone — every concept is, by construction,
+  a machine-asserted binding. This reverses the v1 "repo-declared, hand-authored
+  vocabulary" premise in favor of the v2 "store assertions, not facts" direction.
+
 ## [0.1.1] - 2026-06-21
 
 ### Fixed

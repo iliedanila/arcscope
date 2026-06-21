@@ -20,7 +20,7 @@ function fixture(): string {
   writeFileSync(join(dir, 'libs/feat/services/facade.ts'), 'export class GraphEditorFacade {}\n');
   writeFileSync(join(dir, 'libs/feat/services/router.ts'), 'export class ActionRouterService {}\n');
   writeFileSync(
-    join(dir, '.arcscope/vocab.yaml'),
+    join(dir, '.arcscope/assertions.yaml'),
     [
       'concepts:',
       '  repository-tokens:',
@@ -120,7 +120,7 @@ test('an import locator resolves the live import perimeter and drifts on a new i
     writeFileSync(join(dir, 'src/b.ts'), "import { lite } from '@ext/firestore/lite';\nexport const b = 2;\n"); // subpath counts
     writeFileSync(join(dir, 'src/c.ts'), "import { other } from '@other/pkg';\nexport const c = 3;\n"); // must NOT match
     writeFileSync(
-      join(dir, '.arcscope/vocab.yaml'),
+      join(dir, '.arcscope/assertions.yaml'),
       [
         'concepts:',
         '  firestore-boundary:',
@@ -148,7 +148,7 @@ test('an import locator resolves the live import perimeter and drifts on a new i
 });
 
 test('a malformed locator degrades per-concept — it never blanks the whole layer', async () => {
-  // One typo in a committed vocab.yaml (a symbol query with no kind) must not
+  // One typo in a committed assertions.yaml (a symbol query with no kind) must not
   // throw away every valid concept. arch_list keeps listing the good ones and
   // flags the bad; arch_query returns a graceful error, not a raw crash.
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-arch-'));
@@ -157,7 +157,7 @@ test('a malformed locator degrades per-concept — it never blanks the whole lay
     mkdirSync(join(dir, 'src'), { recursive: true });
     writeFileSync(join(dir, 'src/a.ts'), 'export interface IUserRepository {}\n');
     writeFileSync(
-      join(dir, '.arcscope/vocab.yaml'),
+      join(dir, '.arcscope/assertions.yaml'),
       [
         'concepts:',
         '  good:',

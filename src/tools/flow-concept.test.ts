@@ -33,7 +33,7 @@ test('A→B: a flow concept is asserted, then a FRESH session recomputes it live
 
     // ── Session B: brand-new stores; arch_query recomputes the flow from the entry. ──
     const res = await runArchQuery(new IndexStore(dir, new GrammarRegistry()), dir, { concept: 'doc-flow' }, new ProgramStore(dir));
-    assert.match(res.text, /Flow concept `doc-flow` \[agent-asserted\]/);
+    assert.match(res.text, /Flow concept `doc-flow` —/);
     assert.match(res.text, /\bstartFlow\b/);
     assert.match(res.text, /\bmid\b/);
     assert.match(res.text, /\bleaf\b/); // resolved live, not stored
@@ -73,7 +73,7 @@ test('arch_list labels a flow concept (cheaply, without building the program)', 
   try {
     await runArchAssert(dir, { id: 'doc-flow', title: 'Doc flow', flow: { entry: 'startFlow' } });
     const list = await runArchList(new IndexStore(dir, new GrammarRegistry()), dir);
-    assert.match(list.text, /doc-flow \(flow\) \[agent\] — Doc flow · from startFlow/);
+    assert.match(list.text, /doc-flow \(flow\) — Doc flow · from startFlow/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
