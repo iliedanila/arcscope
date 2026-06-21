@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GrammarRegistry } from '../engine/grammar-registry.js';
 import { IndexStore } from '../engine/index-store.js';
+import { ProgramStore } from '../engine/program-store.js';
 import { InvocationCounter } from '../adoption/counter.js';
 import { runFindDef, findDefInputShape } from '../tools/find-def.js';
 import { runFindRefs, findRefsInputShape } from '../tools/find-refs.js';
@@ -12,6 +13,7 @@ import { runArchList } from '../tools/arch-list.js';
 import { runArchQuery, archQueryInputShape } from '../tools/arch-query.js';
 import { runArchAssert, archAssertInputShape } from '../tools/arch-assert.js';
 import { runArchCandidates, archCandidatesInputShape } from '../tools/arch-candidates.js';
+import { runCallGraph, callGraphInputShape } from '../tools/call-graph.js';
 import { log, logError } from '../log.js';
 
 // Read from package.json (shipped in the tarball) so it never drifts from the
@@ -57,6 +59,10 @@ const INSTRUCTIONS = [
   'its implementation (name-independent, so it catches hand-copied re-implementations grep/imports miss). Use it',
   'when a concept might be incomplete (the "fixed it twice" risk); it returns suspects to confirm and pin via arch_assert.',
   '',
+  'Use call_graph to trace the exact outgoing calls from a function/method with method dispatch RESOLVED — this.x.foo()',
+  'resolves to the concrete implementation (DI/inheritance), which find_refs cannot. Use it to see the full surface a flow',
+  'touches before you change it. Heavier than the tree-sitter tools (builds a TypeScript program); use it deliberately.',
+  '',
   "Every result is labeled with a precision tier so you can calibrate trust (currently",
   "'tree-sitter': structural and high-signal, but not compiler-exact).",
 ].join('\n');
@@ -94,6 +100,15 @@ const ARCH_CANDIDATES_DESCRIPTION = [
   'concept has an invariant, candidates that would violate it are flagged — those are the dangerous ones.',
 ].join(' ');
 
+const CALL_GRAPH_DESCRIPTION = [
+  'Trace the COMPILER-EXACT outgoing call graph from an entry-point function or method, with METHOD DISPATCH',
+  'resolved through the TypeScript type checker — this.service.foo() resolves to the concrete implementation',
+  '(including DI-injected services and inheritance), which tree-sitter find_refs cannot do. Use to see the full',
+  'surface a flow touches BEFORE changing it — every in-repo function it transitively calls. Calls into libraries',
+  'and unresolved (any/higher-order) calls are counted at the boundary. Precision tier: typescript. Heavier than',
+  'the tree-sitter tools: the first call to a given TypeScript project builds its program (seconds); later calls reuse it.',
+].join(' ');
+
 const DEP_GRAPH_DESCRIPTION = [
   'Show the module/file dependency graph from real import edges (resolving aliases + barrels).',
   'Use to understand structure: with no focus it returns the most depended-on files (hubs) and a',
@@ -125,6 +140,7 @@ const FIND_DEF_DESCRIPTION = [
 export async function serve(root: string): Promise<void> {
   const registry = new GrammarRegistry();
   const store = new IndexStore(root, registry);
+  const programStore = new ProgramStore(root); // lazy — builds a TS program only on first call_graph request
   const counter = new InvocationCounter(join(root, '.arcscope', 'usage.jsonl'));
 
   const stats = await store.sync();
@@ -264,6 +280,24 @@ export async function serve(root: string): Promise<void> {
         logError('arch_candidates failed:', err);
         return {
           content: [{ type: 'text', text: `arch_candidates error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'call_graph',
+    { title: 'Trace the resolved call graph', description: CALL_GRAPH_DESCRIPTION, inputSchema: callGraphInputShape },
+    async (args) => {
+      void counter.record('call_graph', args);
+      try {
+        const { text } = await runCallGraph(store, programStore, root, args);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('call_graph failed:', err);
+        return {
+          content: [{ type: 'text', text: `call_graph error: ${err instanceof Error ? err.message : String(err)}` }],
           isError: true,
         };
       }
