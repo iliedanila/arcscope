@@ -14,6 +14,19 @@ npx arcscope init        # index once, write MCP config, update .gitignore
 
 Everything runs on your machine: **no network at query time or at server spawn, no telemetry, no embeddings.** Breadth comes from tree-sitter (WASM grammars bundled offline); precision comes from the TypeScript compiler running locally. Every result carries a precision tier so the agent never mistakes a heuristic for a compiler-accurate answer.
 
+## How it's being used
+
+```bash
+npx arcscope stats
+```
+
+One local command — no network, no telemetry — that shows both halves:
+
+- **How much** — reads `.arcscope/usage.jsonl` (one line per tool call, written as the server runs): totals, a breakdown by tool, and the most-queried symbols/concepts/entry points, plus your committed concepts and their drift baselines.
+- **Is it useful (vs grep)** — the server only sees its own calls, so `stats` also reads the newest Claude Code session transcript for this repo, replays every search/navigation call in order (arcscope ✅ vs grep 🔎 vs ToolSearch 🔍), and reports **arcscope's share of `arcscope + grep`**. No transcript yet → it says so and shows the usage half only.
+
+  Reads **Claude Code** transcripts only (`~/.claude/projects`); Cursor sessions aren't included. The share is a whole-session volume ratio — a quick "is the agent reaching for it?" gut check, not a formal adoption gate.
+
 ## Tools
 
 | tool | answers |

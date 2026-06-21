@@ -1,12 +1,16 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, join } from 'node:path';
 import { loadKnowledge } from '../knowledge/vocab-loader.js';
 import { loadAnchorStore } from '../knowledge/drift.js';
+import { formatAdoptionSection } from '../adoption/report.js';
 import { parseUsageJsonl, summarizeUsage } from './usage-summary.js';
 
-// Human-facing summary of local arcscope usage. Reads only gitignored cache files
-// under .arcscope/ — no network, no transcript required. Grep-vs-tool adoption
-// still needs scripts/adoption-report.mjs + a session transcript.
+// Human-facing summary of local arcscope usage — everything in one place: how much
+// it's used (.arcscope/usage.jsonl), the committed knowledge + drift baselines, and
+// whether the agent actually reached for arcscope over grep (grep-vs-tool adoption,
+// read from the newest Claude Code session transcript for this repo). Fully local:
+// no network, reads only cache files and the local transcript store.
 export function formatStats(root: string): string {
   const lines: string[] = ['arcscope stats', ''];
 
@@ -63,11 +67,59 @@ export function formatStats(root: string): string {
   }
 
   lines.push('');
-  lines.push(
-    'Adoption (grep vs arcscope): not observable server-side. Use scripts/adoption-report.mjs with a session transcript.',
-  );
+  const transcriptPath = latestTranscript(root);
+  const transcriptRaw = transcriptPath ? safeRead(transcriptPath) : null;
+  for (const l of formatAdoptionSection(transcriptPath, transcriptRaw)) lines.push(l);
 
   return lines.join('\n');
+}
+
+function safeRead(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+// Newest *.jsonl under ~/.claude/projects/ for this repo, or null if none — then
+// the adoption ratio is unavailable. This is Claude Code-specific storage (Cursor
+// sessions aren't here); Claude Code names each project dir after its cwd with
+// non-alphanumerics replaced by '-'. We prefer that exact dir so a short repo name
+// (app, lib) can't match an unrelated project, falling back to a basename
+// substring only when the exact dir is absent.
+function latestTranscript(root: string): string | null {
+  const base = join(homedir(), '.claude', 'projects');
+  let dirs: string[];
+  try {
+    dirs = readdirSync(base);
+  } catch {
+    return null;
+  }
+  const encoded = root.replace(/[^a-zA-Z0-9]/g, '-');
+  const repoName = basename(root);
+  const candidates = dirs.includes(encoded) ? [encoded] : dirs.filter((d) => d.includes(repoName));
+
+  let best: string | null = null;
+  let bestMs = -1;
+  for (const d of candidates) {
+    let files: string[];
+    try {
+      files = readdirSync(join(base, d));
+    } catch {
+      continue;
+    }
+    for (const f of files) {
+      if (!f.endsWith('.jsonl')) continue;
+      const p = join(base, d, f);
+      const ms = statSync(p).mtimeMs;
+      if (ms > bestMs) {
+        bestMs = ms;
+        best = p;
+      }
+    }
+  }
+  return best;
 }
 
 export function stats(root: string): void {

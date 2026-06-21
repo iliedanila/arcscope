@@ -29,7 +29,7 @@ try {
           'Usage:\n' +
           '  arcscope init    Set up this repo: index once, write MCP config, update .gitignore\n' +
           '  arcscope serve   Run the MCP server over stdio (spawned by your MCP client)\n' +
-          '  arcscope stats   Summarize local MCP usage (.arcscope/usage.jsonl)\n',
+          '  arcscope stats   Summarize local MCP usage: tool calls + grep-vs-arcscope adoption\n',
       );
       process.exit(command ? 1 : 0);
     }
