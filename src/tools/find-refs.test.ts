@@ -72,9 +72,9 @@ test('find_refs gives an honest out-of-tier hint for a member-access-only method
     const store = new IndexStore(dir, registry);
     const { records, text } = await runFindRefs(store, registry, dir, { symbol: 'doThing' });
 
-    assert.equal(records.length, 0); // import-resolution can't see member access
+    assert.equal(records.length, 0); // tree-sitter path (no precise tier): can't see member access
     assert.match(text, /member access/);
-    assert.match(text, /deferred \(compiler-accurate\) tier/);
+    assert.match(text, /precise tier/); // points at the precise tier instead of a dead end
     assert.match(text, /grep `\.doThing`/); // actionable fallback
   } finally {
     rmSync(dir, { recursive: true, force: true });

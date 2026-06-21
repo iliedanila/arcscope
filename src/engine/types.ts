@@ -60,5 +60,5 @@ export interface RefRecord {
   refKind: RefKind;
   resolved: boolean;
   resolvesTo: { file: string; line: number } | null;
-  precisionTier: 'tree-sitter' | 'unresolved-candidate';
+  precisionTier: 'tree-sitter' | 'unresolved-candidate' | 'typescript';
 }
