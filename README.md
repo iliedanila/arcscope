@@ -6,7 +6,7 @@ A fully-local MCP server that gives an AI coding agent precise views of an unfam
 
 ```bash
 npm i -D arcscope
-npx arcscope init        # index the repo, write an offline .mcp.json, update .gitignore
+npx arcscope init        # write an offline .mcp.json, update .gitignore, scaffold .arcscope/vocab.yaml
 # restart your MCP client (e.g. Claude Code) — it reads .mcp.json and connects
 ```
 
@@ -17,7 +17,7 @@ Everything runs on your machine: **no network at query time or at server spawn, 
 | tool | answers |
 | --- | --- |
 | `find_def` | where a symbol is defined, with its signature |
-| `find_refs` | who references it — **compiler-exact for methods** (member access `obj.method()` resolved), import-resolved for everything else |
+| `find_refs` | who references it — **compiler-exact for methods** when a `tsconfig` governs the file (member access `obj.method()` resolved); import-resolved otherwise |
 | `dep_graph` | the file/module dependency graph: hubs, a file's neighborhood, or circular dependencies |
 | `call_graph` | the **method-resolved** outgoing call graph from a function — follows `this.x.foo()` through the type checker |
 | `flow` | the complete surface of a flow **before you change it**: the call closure + a structural edge-case checklist |
@@ -30,18 +30,23 @@ Everything runs on your machine: **no network at query time or at server spawn, 
 
 tree-sitter can't tell you who calls `this.documentService.clone()` — resolving a method call needs the receiver's *type*. arcscope's precise tier runs the **TypeScript compiler + language service** locally (no network) to answer that exactly:
 
-- **`find_refs`** on a method finds every member-access call site, resolved to the concrete implementation — including DI-injected services and inheritance.
-- **`call_graph`** traces the outgoing closure from an entry point with method dispatch resolved.
+- **`find_refs`** on a method finds its member-access call sites (`obj.method()`), resolved through the type checker — the call sites grep and import-resolution miss.
+- **`call_graph`** traces the outgoing closure from an entry point with method dispatch resolved to the concrete implementation (DI-injected services, inheritance).
 - **`flow`** maps the *complete surface* of a flow before you touch it: every function it transitively calls, annotated with each function's edge cases (branches, error handling, async). So you catch every case a change must handle.
 
 ```
 flow forkDocument
-# Flow surface from `forkDocument` (…/document-fork.service.ts:44) — 38 functions, precision tier: typescript:
-# forkDocument  …/document-fork.service.ts:44  (+5 lib)  {2 branch}
-# ├─ getDocumentSnapshot  …/firestore-document.repository.ts:183  {2 branch, 3 await}
-# └─ _performFork  …/document-fork.service.ts:62  (+3 lib)  {1 err, 1 await}
-#    └─ cloneGraphForDocument → cloneNode → normalizeLinkOrderForCanvas …
-# Edge-case surface: 6 decision points · 1 error-handling site · 7 async boundaries.
+# Flow surface from `forkDocument` (apps/.../document-fork.service.ts:44) — 38 functions, precision tier: typescript:
+# forkDocument  apps/.../document-fork.service.ts:44  (+5 lib)  {2 branch}
+# ├─ getDocumentSnapshot  apps/.../firestore-document.repository.ts:183  (+2 lib)  {2 branch, 3 await}
+# │  └─ …
+# └─ _performFork  apps/.../document-fork.service.ts:62  (+3 lib)  {1 err, 1 await}
+#    └─ cloneGraphForDocument  libs/utils/.../graph-clone.ts:32  (+1 lib)
+#       └─ cloneNode  libs/utils/.../graph-clone.ts:104
+#          └─ normalizeLinkOrderForCanvas  libs/.../element-mutation-policy.ts:141
+# … (38 functions; tree abbreviated)
+# Edge-case surface: 6 decision points (if/switch/ternary) · 1 error-handling site (try/throw) · 7 async boundaries (await).
+# Each {…} tag marks where behaviour forks, fails, or awaits — verify your change handles each before you write it.
 ```
 
 ## The architecture vocabulary — the differentiator
@@ -73,12 +78,14 @@ Nothing is stored as a bare fact: every assertion is re-verified against live co
 The **first** `arch_query` records a baseline; later queries compare against it:
 
 ```
-arch_query data-layer        # 7 locations, fresh (baseline captured)
-#  … later, someone adds src/audit/audit.repository.ts …
-arch_query data-layer        # 8 locations, DRIFTED
+arch_query repository-tokens
+# Concept `repository-tokens` — Repository-token pattern (7 locations, fresh (baseline captured)):
+#  … later, someone adds apps/audit/firestore-audit.repository.ts …
+arch_query repository-tokens
+# Concept `repository-tokens` — Repository-token pattern (8 locations, DRIFTED):
 #   ⚠ DRIFT vs baseline: 1 added, 0 removed, 0 changed.
-#     + src/audit/audit.repository.ts#AuditRepository
-arch_query data-layer reaccept:true     # accept the new shape → fresh again
+#     + apps/audit/firestore-audit.repository.ts
+arch_query repository-tokens reaccept:true     # accept the new shape → fresh again
 ```
 
 ## How it works
