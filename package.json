@@ -41,6 +41,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "js-yaml": "^4.2.0",
+    "typescript": "^5.7.0",
     "web-tree-sitter": "^0.26.9",
     "zod": "^3.25.0"
   },
@@ -50,7 +51,6 @@
     "shx": "^0.4.0",
     "tree-sitter-javascript": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",
-    "tsx": "^4.22.4",
-    "typescript": "^5.7.0"
+    "tsx": "^4.22.4"
   }
 }
