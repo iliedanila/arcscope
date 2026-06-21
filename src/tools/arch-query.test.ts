@@ -17,8 +17,8 @@ function fixture(): string {
     join(dir, 'libs/data/interfaces/repos.ts'),
     'export interface IUserRepository {}\nexport interface IDocRepository {}\nexport interface Helper {}\n',
   );
-  writeFileSync(join(dir, 'libs/feat/services/facade.ts'), 'export class GraphEditorFacade {}\n');
-  writeFileSync(join(dir, 'libs/feat/services/router.ts'), 'export class ActionRouterService {}\n');
+  writeFileSync(join(dir, 'libs/feat/services/facade.ts'), 'export class EditorFacade {}\n');
+  writeFileSync(join(dir, 'libs/feat/services/router.ts'), 'export class ActionRouter {}\n');
   writeFileSync(
     join(dir, '.arcscope/assertions.yaml'),
     [
@@ -30,8 +30,8 @@ function fixture(): string {
       '  editor-state-flow:',
       '    title: Pipeline',
       '    stages:',
-      '      - { title: Facade, kind: symbol, query: "class GraphEditorFacade", in: "libs/feat/**" }',
-      '      - { title: Router, kind: symbol, query: "class ActionRouterService", in: "libs/feat/**" }',
+      '      - { title: Facade, kind: symbol, query: "class EditorFacade", in: "libs/feat/**" }',
+      '      - { title: Router, kind: symbol, query: "class ActionRouter", in: "libs/feat/**" }',
     ].join('\n'),
   );
   return dir;
@@ -60,7 +60,7 @@ test('arch_query returns staged concepts in order', async () => {
     );
     assert.deepEqual(
       resolved.map((r) => r.symbol),
-      ['GraphEditorFacade', 'ActionRouterService'],
+      ['EditorFacade', 'ActionRouter'],
     );
     assert.match(text, /Facade/);
   } finally {
@@ -102,10 +102,10 @@ test('drift detects a changed definition signature (plausible-but-wrong case)', 
   try {
     const store = new IndexStore(dir, new GrammarRegistry());
     await runArchQuery(store, dir, { concept: 'editor-state-flow' }); // baseline
-    writeFileSync(join(dir, 'libs/feat/services/facade.ts'), 'export class GraphEditorFacade extends Object {}\n');
+    writeFileSync(join(dir, 'libs/feat/services/facade.ts'), 'export class EditorFacade extends Object {}\n');
     const drifted = await runArchQuery(store, dir, { concept: 'editor-state-flow' });
     assert.equal(drifted.drift?.status, 'drifted');
-    assert.ok(drifted.drift?.changed.some((k) => k.includes('GraphEditorFacade')));
+    assert.ok(drifted.drift?.changed.some((k) => k.includes('EditorFacade')));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

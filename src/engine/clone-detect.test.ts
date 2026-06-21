@@ -53,8 +53,7 @@ const TRIVIAL = `function tiny() { return 1; }`;
 
 // A REALISTICALLY diverged clone (Type-3): renamed + type annotations + an `as`
 // cast + `??` + an extra guard + a wrapper call — the shape a real hand-mirror
-// takes. The identical-structure test is necessary but NOT sufficient: validating
-// on the real dogfood showed the original K=5 build scored this kind of divergence
+// takes. Empirical tuning showed the original K=5 build scored this kind of divergence
 // ~0.3 and silently missed the actual re-implementation. This locks in the K=3
 // separation that catches it.
 const DIVERGED_FROM_A = `

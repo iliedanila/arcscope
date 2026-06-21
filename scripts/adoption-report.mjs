@@ -6,9 +6,9 @@
 // (the server can only see its own calls; the transcript shows the grep side).
 //
 // Usage:
-//   node scripts/adoption-report.mjs [path/to/transcript.jsonl] [--repo <repoPath>]
-// Defaults: most-recently-modified transcript across ~/.claude/projects/*knowledge-graph*,
-//           repo = /Users/ilie/workspace/knowledge-graph
+//   node scripts/adoption-report.mjs <transcript.jsonl> --repo <repoPath>
+//   node scripts/adoption-report.mjs --repo <repoPath> --project=<name>
+//     (finds the newest transcript under ~/.claude/projects/*<name>*)
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -16,10 +16,18 @@ import { join } from 'node:path';
 const argv = process.argv.slice(2);
 let transcriptPath = argv.find((a) => a.endsWith('.jsonl'));
 const repoIdx = argv.indexOf('--repo');
-const repo = repoIdx >= 0 ? argv[repoIdx + 1] : '/Users/ilie/workspace/knowledge-graph';
-const projectFilter = (argv.find((a) => a.startsWith('--project=')) ?? '--project=knowledge-graph').split('=')[1];
+const repo = repoIdx >= 0 ? argv[repoIdx + 1] : null;
+const projectArg = argv.find((a) => a.startsWith('--project='));
+const projectFilter = projectArg?.split('=')[1];
+
+if (!repo) {
+  console.error('Usage: node scripts/adoption-report.mjs <transcript.jsonl> --repo <repoPath>');
+  console.error('   or: node scripts/adoption-report.mjs --repo <repoPath> --project=<name>');
+  process.exit(1);
+}
 
 function latestTranscript() {
+  if (!projectFilter) return null;
   const base = join(homedir(), '.claude', 'projects');
   let best = null;
   let bestMs = -1;
@@ -46,7 +54,7 @@ function latestTranscript() {
 
 transcriptPath ||= latestTranscript();
 if (!transcriptPath) {
-  console.error('No transcript found. Pass one explicitly: node scripts/adoption-report.mjs <file.jsonl>');
+  console.error('No transcript found. Pass one explicitly or use --project=<name>.');
   process.exit(1);
 }
 
