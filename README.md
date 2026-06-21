@@ -109,5 +109,3 @@ arcscope never presents a tree-sitter heuristic as compiler-exact. Honest residu
 - **`any`-typed / higher-order callbacks** and **runtime-wired providers** (`InjectionToken`, `useFactory`) may resolve to the *declared* member rather than the concrete impl.
 - the precise tier is **per-`tsconfig`** — a single flow rarely spans module systems, but cross-project closures aren't unioned. It builds a TS program on first use (seconds), cached after.
 - **TS / JS / TSX only**; module grouping is general-first (directory + import clustering), never a build tool's project model.
-
-> Building with Claude Code? Start at [`CLAUDE.md`](CLAUDE.md).
