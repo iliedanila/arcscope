@@ -9,6 +9,7 @@ test('classifyToolCall labels arcscope, grep, glob, bash-grep, toolsearch — an
   assert.equal(classifyToolCall('Glob', { pattern: '*.ts' })?.kind, 'grep');
   assert.equal(classifyToolCall('Bash', { command: 'rg foo src' })?.kind, 'grep');
   assert.equal(classifyToolCall('Bash', { command: 'cat x.ts | grep foo' })?.kind, 'grep');
+  assert.equal(classifyToolCall('Bash', { command: 'git grep -l foo' })?.kind, 'grep');
   assert.equal(classifyToolCall('Bash', { command: 'ls -la' }), null);
   // mentions of "grep" that aren't an actual grep invocation must NOT count
   assert.equal(classifyToolCall('Bash', { command: 'git commit -m "prefer arcscope over grep"' }), null);
@@ -37,7 +38,11 @@ test('buildTimeline + tally compute arcscope share of (arcscope + grep)', () => 
 
 test('formatAdoptionSection renders the ratio, and notes a missing transcript', () => {
   const noTranscript = formatAdoptionSection(null, null).join('\n');
-  assert.match(noTranscript, /no session transcript found for this repo/);
+  assert.match(noTranscript, /no Claude Code session transcript found for this repo/);
+
+  // a transcript that was found but couldn't be read is a distinct, non-misleading case
+  const unreadable = formatAdoptionSection('/tmp/session.jsonl', null).join('\n');
+  assert.match(unreadable, /could not read session transcript at \/tmp\/session\.jsonl/);
 
   const transcript = [
     JSON.stringify({ message: { content: [{ type: 'tool_use', name: 'mcp__arcscope__find_def', input: { symbol: 'A' } }] } }),

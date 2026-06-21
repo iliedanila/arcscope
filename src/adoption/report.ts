@@ -12,13 +12,18 @@ export interface ClassifiedCall {
 }
 
 // Match a grep-family tool only as the *first word of a command segment* — so an
-// actual `grep …` / `find … | rg …` counts, but a `git commit -m "…grep…"` or
-// `echo "…grep…"` (the word merely mentioned) does not. Segments split on the
-// shell separators that start a new command: | ; && || and newlines.
+// actual `grep …` / `find … | rg …` / `git grep …` counts, but a
+// `git commit -m "…grep…"` or `echo "…grep…"` (the word merely mentioned) does
+// not. Segments split on the shell separators that start a new command:
+// | ; && || and newlines.
 const GREP_CMD_RE = /^(grep|rg|ripgrep|fgrep|egrep|ag|ack)\b/;
+const GIT_GREP_RE = /^git\s+grep\b/;
 
 function isGrepCommand(cmd: string): boolean {
-  return cmd.split(/[\n;|&]+/).some((seg) => GREP_CMD_RE.test(seg.trim()));
+  return cmd.split(/[\n;|&]+/).some((seg) => {
+    const s = seg.trim();
+    return GREP_CMD_RE.test(s) || GIT_GREP_RE.test(s);
+  });
 }
 
 function str(v: unknown): string {
@@ -91,11 +96,15 @@ export function tally(timeline: ClassifiedCall[]): AdoptionTotals {
 }
 
 // The "Adoption (grep vs arcscope)" block of `arcscope stats`, as output lines.
-// transcriptRaw is the transcript's contents, or null when none was found for the
-// repo — in which case the ratio can't be computed and we say so.
+// transcriptPath is null when no transcript was found for the repo; transcriptRaw
+// is null when a transcript was found but couldn't be read — distinct cases so the
+// message isn't misleading. Replay is Claude Code-only (see latestTranscript).
 export function formatAdoptionSection(transcriptPath: string | null, transcriptRaw: string | null): string[] {
-  if (!transcriptPath || transcriptRaw === null) {
-    return ['Adoption (grep vs arcscope): no session transcript found for this repo (the grep-vs-tool ratio needs one).'];
+  if (!transcriptPath) {
+    return ['Adoption (grep vs arcscope): no Claude Code session transcript found for this repo (the grep-vs-tool ratio needs one).'];
+  }
+  if (transcriptRaw === null) {
+    return [`Adoption (grep vs arcscope): could not read session transcript at ${transcriptPath}.`];
   }
   const timeline = buildTimeline(transcriptRaw);
   const lines = [`Adoption (grep vs arcscope) — from ${transcriptPath}:`];

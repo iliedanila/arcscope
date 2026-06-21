@@ -67,7 +67,7 @@ export function formatStats(root: string): string {
   }
 
   lines.push('');
-  const transcriptPath = latestTranscript(basename(root));
+  const transcriptPath = latestTranscript(root);
   const transcriptRaw = transcriptPath ? safeRead(transcriptPath) : null;
   for (const l of formatAdoptionSection(transcriptPath, transcriptRaw)) lines.push(l);
 
@@ -82,10 +82,13 @@ function safeRead(path: string): string | null {
   }
 }
 
-// Newest *.jsonl under ~/.claude/projects/*<filter>* (Claude Code's transcript
-// store), or null when nothing matches — then the adoption ratio is unavailable.
-function latestTranscript(projectFilter: string): string | null {
-  if (!projectFilter) return null;
+// Newest *.jsonl under ~/.claude/projects/ for this repo, or null if none — then
+// the adoption ratio is unavailable. This is Claude Code-specific storage (Cursor
+// sessions aren't here); Claude Code names each project dir after its cwd with
+// non-alphanumerics replaced by '-'. We prefer that exact dir so a short repo name
+// (app, lib) can't match an unrelated project, falling back to a basename
+// substring only when the exact dir is absent.
+function latestTranscript(root: string): string | null {
   const base = join(homedir(), '.claude', 'projects');
   let dirs: string[];
   try {
@@ -93,10 +96,13 @@ function latestTranscript(projectFilter: string): string | null {
   } catch {
     return null;
   }
+  const encoded = root.replace(/[^a-zA-Z0-9]/g, '-');
+  const repoName = basename(root);
+  const candidates = dirs.includes(encoded) ? [encoded] : dirs.filter((d) => d.includes(repoName));
+
   let best: string | null = null;
   let bestMs = -1;
-  for (const d of dirs) {
-    if (!d.includes(projectFilter)) continue;
+  for (const d of candidates) {
     let files: string[];
     try {
       files = readdirSync(join(base, d));
