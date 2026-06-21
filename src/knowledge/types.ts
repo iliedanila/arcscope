@@ -40,14 +40,24 @@ export interface Invariant {
   locators: Locator[];
 }
 
+// A flow binding: the concept is one FLOW, resolved live via the precise tier (the
+// method-resolved call closure + edge cases) from an entry point. Lets the agent
+// persist a reviewed flow so a later session inherits it — re-run on read, with
+// drift on the flow's membership (a function entering/leaving the flow).
+export interface FlowBinding {
+  entry: string; // entry-point function/method symbol
+  pathGlob?: string; // disambiguate the entry's definition
+}
+
 export interface Concept {
   id: string;
   title: string;
   description?: string;
-  note?: string; // honest note for degraded concepts (anchors-only)
+  note?: string; // honest note for degraded concepts (anchors-only) / the agent's flow notes
   locators?: Locator[];
   stages?: Stage[];
   must?: Invariant; // optional conformance rule (v2)
+  flow?: FlowBinding; // a flow concept (precise tier) instead of locators/stages
   source?: 'vocab' | 'agent'; // provenance: human-authored vs agent-asserted (assigned at load)
 }
 

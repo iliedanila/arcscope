@@ -10,8 +10,9 @@ export interface AssertionInput {
   id: string;
   title: string;
   description?: string;
-  locators: Locator[];
+  locators?: Locator[];
   must?: Invariant;
+  flow?: { entry: string; pathGlob?: string }; // a flow concept (precise tier)
 }
 
 // Append/update one assertion in the agent-owned .arcscope/assertions.yaml,
@@ -29,7 +30,8 @@ export function writeAssertion(root: string, a: AssertionInput): string {
   concepts[a.id] = clean({
     title: a.title,
     description: a.description,
-    locators: a.locators.map(locatorToYaml),
+    flow: a.flow ? clean({ entry: a.flow.entry, pathGlob: a.flow.pathGlob }) : undefined,
+    locators: a.locators && a.locators.length > 0 ? a.locators.map(locatorToYaml) : undefined,
     must: a.must
       ? clean({ title: a.must.title, locators: a.must.locators.map(locatorToYaml) })
       : undefined,

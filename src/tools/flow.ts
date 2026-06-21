@@ -18,6 +18,18 @@ export interface FlowResult {
   text: string;
 }
 
+export interface FlowMember {
+  file: string;
+  symbol: string;
+  line: number;
+}
+
+export interface FlowResolution {
+  ok: boolean;
+  text: string; // the flow surface (on ok) or the degradation message
+  members: FlowMember[]; // distinct functions in the flow (for a flow concept's drift)
+}
+
 const MAX_NODES = 150;
 
 // Expose the COMPLETE area of one flow BEFORE changing it: the method-resolved call
@@ -32,11 +44,22 @@ export async function runFlow(
   root: string,
   args: { symbol: string; pathGlob?: string; depth?: number },
 ): Promise<FlowResult> {
+  return { text: (await resolveFlow(indexStore, programStore, root, args)).text };
+}
+
+// The flow surface, plus the distinct member functions (so a flow concept can drift
+// on membership). Used by both the `flow` tool and arch_query flow concepts.
+export async function resolveFlow(
+  indexStore: IndexStore,
+  programStore: ProgramStore,
+  root: string,
+  args: { symbol: string; pathGlob?: string; depth?: number },
+): Promise<FlowResolution> {
   const sync = await indexStore.sync();
   if (sync.changed > 0 || sync.removed > 0) programStore.invalidate();
   const defs = indexStore.find(args.symbol, args.pathGlob);
   if (defs.length === 0) {
-    return { text: `No definition of \`${args.symbol}\` found. Try find_def (it suggests similar names).` };
+    return { ok: false, members: [], text: `No definition of \`${args.symbol}\` found. Try find_def (it suggests similar names).` };
   }
   const def = defs[0]!;
   const absFile = join(root, def.file);
@@ -44,12 +67,16 @@ export async function runFlow(
   const proj = programStore.forFile(absFile);
   if (!proj) {
     return {
+      ok: false,
+      members: [],
       text: `\`${args.symbol}\` is at ${def.file}, but no tsconfig governs that file — the flow surface needs a TypeScript project (tree-sitter find_refs/dep_graph still apply).`,
     };
   }
   const focus = findFocusDecl(proj.program, absFile, def.line, args.symbol);
   if (!focus) {
     return {
+      ok: false,
+      members: [],
       text: `Located \`${args.symbol}\` at ${def.file}:${def.line}, but it is not a function/method — a flow starts from a function.`,
     };
   }
@@ -84,7 +111,25 @@ export async function runFlow(
     `Resolved live against tsconfig ${proj.configPath}.`,
   ].filter(Boolean);
 
-  return { text: [head, ...body, ...surface, ...candidates, ...footer].join('\n') };
+  return { ok: true, members: flattenMembers(tree), text: [head, ...body, ...surface, ...candidates, ...footer].join('\n') };
+}
+
+// Distinct functions in the flow (incl. recursion/seen-elsewhere refs — they are
+// members that recur). Keyed so a named function is line-independent (a move does
+// not drift) while anonymous functions stay line-specific.
+function flattenMembers(root: CallNode): FlowMember[] {
+  const seen = new Set<string>();
+  const out: FlowMember[] = [];
+  const walk = (n: CallNode): void => {
+    const key = n.symbol === '(anonymous)' ? `${n.file}:${n.line}` : `${n.file}#${n.symbol}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ file: n.file, symbol: n.symbol, line: n.line });
+    }
+    n.children.forEach(walk);
+  };
+  walk(root);
+  return out;
 }
 
 function plural(n: number): string {
