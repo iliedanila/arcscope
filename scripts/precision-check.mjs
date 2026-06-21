@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Phase 1 precision kill-criterion (spec §13). For each symbol, compare arcscope
-// find_refs vs `git grep` on the dogfood repo. The claim find_refs must earn:
+// find_refs vs `git grep` on a target repo. The claim find_refs must earn:
 // it drops same-named false positives (occurrences in files that don't import the
 // symbol) WITHOUT dropping genuine refs. We classify every grep-only file as a
 // false positive find_refs correctly excluded, or a potential false negative.
 //
-// Usage: node scripts/precision-check.mjs [--repo <path>] [symbol ...]
+// Usage: node scripts/precision-check.mjs --repo <path> [symbol ...]
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -14,9 +14,17 @@ import { readFileSync } from 'node:fs';
 const here = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
 const repoIdx = argv.indexOf('--repo');
-const repo = repoIdx >= 0 ? argv[repoIdx + 1] : '/Users/ilie/workspace/knowledge-graph';
+const repo = repoIdx >= 0 ? argv[repoIdx + 1] : null;
 const symbols = argv.filter((a) => !a.startsWith('--') && a !== repo);
-const SYMBOLS = symbols.length ? symbols : ['GraphEditorFacade', 'PluginRegistryService', 'generateUuid'];
+
+if (!repo) {
+  console.error('Usage: node scripts/precision-check.mjs --repo <path> [symbol ...]');
+  process.exit(1);
+}
+if (symbols.length === 0) {
+  console.error('Pass at least one symbol to check, e.g.: node scripts/precision-check.mjs --repo . MyService');
+  process.exit(1);
+}
 
 const { GrammarRegistry } = await import(join(here, '..', 'dist', 'engine', 'grammar-registry.js'));
 const { IndexStore } = await import(join(here, '..', 'dist', 'engine', 'index-store.js'));
@@ -47,7 +55,7 @@ function fileImports(repoRel, symbol) {
 }
 
 console.log(`\nPrecision check vs git grep — repo: ${repo}\n`);
-for (const symbol of SYMBOLS) {
+for (const symbol of symbols) {
   const t0 = performance.now();
   const { records } = await runFindRefs(store, registry, repo, { symbol });
   const ms = Math.round(performance.now() - t0);

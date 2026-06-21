@@ -35,15 +35,15 @@ tree-sitter can't tell you who calls `this.documentService.clone()` — resolvin
 - **`flow`** maps the *complete surface* of a flow before you touch it: every function it transitively calls, annotated with each function's edge cases (branches, error handling, async). So you catch every case a change must handle.
 
 ```
-flow forkDocument
-# Flow surface from `forkDocument` (apps/.../document-fork.service.ts:44) — 38 functions, precision tier: typescript:
-# forkDocument  apps/.../document-fork.service.ts:44  (+5 lib)  {2 branch}
-# ├─ getDocumentSnapshot  apps/.../firestore-document.repository.ts:183  (+2 lib)  {2 branch, 3 await}
+flow cloneUser
+# Flow surface from `cloneUser` (apps/.../clone-user.service.ts:44) — 38 functions, precision tier: typescript:
+# cloneUser  apps/.../clone-user.service.ts:44  (+5 lib)  {2 branch}
+# ├─ loadRecord  apps/.../record.repository.ts:183  (+2 lib)  {2 branch, 3 await}
 # │  └─ …
-# └─ _performFork  apps/.../document-fork.service.ts:62  (+3 lib)  {1 err, 1 await}
-#    └─ cloneGraphForDocument  libs/utils/.../graph-clone.ts:32  (+1 lib)
-#       └─ cloneNode  libs/utils/.../graph-clone.ts:104
-#          └─ normalizeLinkOrderForCanvas  libs/.../element-mutation-policy.ts:141
+# └─ performClone  apps/.../clone-user.service.ts:62  (+3 lib)  {1 err, 1 await}
+#    └─ cloneRecord  libs/.../record-clone.ts:32  (+1 lib)
+#       └─ cloneItem  libs/.../record-clone.ts:104
+#          └─ reindexAfterClone  libs/.../reindex.ts:41
 # … (38 functions; tree abbreviated)
 # Edge-case surface: 6 decision points (if/switch/ternary) · 1 error-handling site (try/throw) · 7 async boundaries (await).
 # Each {…} tag marks where behaviour forks, fails, or awaits — verify your change handles each before you write it.

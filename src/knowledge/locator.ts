@@ -7,7 +7,7 @@ export interface ParsedSymbolQuery {
 const KIND_ALIASES: Record<string, string> = { const: 'constant' };
 
 // Parse a symbol locator query: "<kind> <namePattern> [= <valueConstraint>]".
-// Examples: "interface I*Repository", "class GraphReducer",
+// Examples: "interface I*Repository", "class StateReducer",
 // "const *_REPOSITORY = InjectionToken", "method normalizeElement".
 // Pure string parsing — no regex injection, no shell-out (invariant 4).
 export function parseSymbolQuery(query: string): ParsedSymbolQuery {

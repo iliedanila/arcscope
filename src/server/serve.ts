@@ -89,8 +89,8 @@ const ARCH_QUERY_DESCRIPTION = [
 
 const ARCH_ASSERT_DESCRIPTION = [
   'Record an architecture concept you have worked out so a LATER session inherits it. Use when you discover a',
-  'cross-cutting concept the structure does not name on its own — e.g. "every way a document is copied", or an',
-  'invariant like "every copy path must call normalizeLinkOrderForCanvas". You write a BINDING (locators that',
+  'cross-cutting concept the structure does not name on its own — e.g. "every way a record is cloned", or an',
+  'invariant like "every clone path must call reindexAfterClone". You write a BINDING (locators that',
   'resolve to the members live — symbol/path/import; pin a scattered member with a path locator) plus an optional',
   'invariant (a "must" rule every member must satisfy). arcscope stores it as a re-checked assertion, never a bare',
   'fact: it re-resolves and re-verifies against current code on every arch_query, so it cannot silently rot.',
@@ -143,7 +143,7 @@ const FIND_REFS_DESCRIPTION = [
 const FIND_DEF_DESCRIPTION = [
   'Find where a symbol is defined and show its signature.',
   'Use when you need the definition site of a named function, class, method, interface, type,',
-  "enum, or exported constant — e.g. \"where is GraphReducer defined?\".",
+  "enum, or exported constant — e.g. \"where is useAuth defined?\".",
   'More precise than text search: it parses the code, so it skips comments, strings, and unrelated',
   'same-named matches. Returns each definition as file:line, kind, and header signature, with a',
   'precision tier. If no exact match exists, it suggests symbols with similar names — so you can',

@@ -10,7 +10,7 @@ export const findDefInputShape = {
   symbol: z
     .string()
     .min(1)
-    .describe("Exact symbol name to locate (case-sensitive), e.g. 'GraphReducer', 'useAuth', 'IThingRepository'."),
+    .describe("Exact symbol name to locate (case-sensitive), e.g. 'useAuth', 'IThingRepository'."),
   pathGlob: z
     .string()
     .optional()

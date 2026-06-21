@@ -10,80 +10,70 @@ import { runArchQuery } from './arch-query.js';
 import { runArchList } from './arch-list.js';
 import type { AssertionInput } from '../knowledge/assertion-store.js';
 
-// A fixture mirroring the real document-copy bug:
-//  - two app paths import the shared clone helper AND the badge re-numberer,
-//  - one cloud-function path HAND-MIRRORS the clone (imports neither) — the orphan
-//    that shares no signal with the others and got missed in the real fix.
+// Fixture: two app paths import the shared clone helper and re-indexer; one worker path
+// hand-mirrors the clone (imports neither) — the orphan that shares no signal with the others.
 function fixture(): string {
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-assert-'));
   mkdirSync(join(dir, 'apps'), { recursive: true });
-  mkdirSync(join(dir, 'functions'), { recursive: true });
+  mkdirSync(join(dir, 'workers'), { recursive: true });
   writeFileSync(
-    join(dir, 'apps/template-clone.ts'),
-    "import { cloneGraphForDocument } from '@lib/graph-clone';\n" +
-      "import { normalizeLinkOrderForCanvas } from '@lib/link-order';\n" +
-      'export function templateClone() { return cloneGraphForDocument(normalizeLinkOrderForCanvas([])); }\n',
+    join(dir, 'apps/clone-user.ts'),
+    "import { cloneRecord } from '@lib/record-clone';\n" +
+      "import { reindexAfterClone } from '@lib/reindex';\n" +
+      'export function cloneUser() { return reindexAfterClone(cloneRecord([])); }\n',
   );
   writeFileSync(
-    join(dir, 'apps/fork-document.ts'),
-    "import { cloneGraphForDocument } from '@lib/graph-clone';\n" +
-      "import { normalizeLinkOrderForCanvas } from '@lib/link-order';\n" +
-      'export function forkDocument() { return cloneGraphForDocument(normalizeLinkOrderForCanvas([])); }\n',
+    join(dir, 'apps/duplicate-account.ts'),
+    "import { cloneRecord } from '@lib/record-clone';\n" +
+      "import { reindexAfterClone } from '@lib/reindex';\n" +
+      'export function duplicateAccount() { return reindexAfterClone(cloneRecord([])); }\n',
   );
-  // The orphan: imports neither helper — it re-implements the clone by hand and
-  // forgets to re-number badges. Pinned into the concept by a path locator.
   writeFileSync(
-    join(dir, 'functions/clone-template-content.ts'),
-    'export function cloneTemplateContent() { return { cloned: true }; }\n',
+    join(dir, 'workers/hand-clone-record.ts'),
+    'export function handCloneRecord() { return { cloned: true }; }\n',
   );
   return dir;
 }
 
-const DOCUMENT_COPY: AssertionInput = {
-  id: 'document-copy',
-  title: 'Document copy paths',
-  description: 'Every way a document is copied.',
+const RECORD_CLONE: AssertionInput = {
+  id: 'record-clone',
+  title: 'Record clone paths',
+  description: 'Every way a record is cloned.',
   locators: [
-    { kind: 'import', of: '@lib/graph-clone' }, // self-maintaining: the app paths
-    { kind: 'path', glob: 'functions/**/clone-template-content.ts' }, // the pinned orphan
+    { kind: 'import', of: '@lib/record-clone' },
+    { kind: 'path', glob: 'workers/**/hand-clone-record.ts' },
   ],
   must: {
-    title: 're-numbers link badges',
-    locators: [{ kind: 'import', of: '@lib/link-order' }],
+    title: 're-indexes after cloning',
+    locators: [{ kind: 'import', of: '@lib/reindex' }],
   },
 };
 
 test('A→B: an asserted concept persists and a fresh session inherits it + its conformance verdict', async () => {
   const dir = fixture();
   try {
-    // ── Session A: record the assertion. Nothing is held in memory afterward. ──
     const storeA = new IndexStore(dir, new GrammarRegistry());
     await storeA.sync();
-    await runArchAssert(dir, DOCUMENT_COPY);
+    await runArchAssert(dir, RECORD_CLONE);
     assert.ok(existsSync(join(dir, '.arcscope/assertions.yaml')), 'assertion persisted to disk');
-    // assertions.yaml is the single knowledge source — no legacy human-authored vocab.yaml.
     assert.ok(!existsSync(join(dir, '.arcscope/vocab.yaml')));
 
-    // ── Session B: a brand-new store (no carryover) reads the assertion off disk. ──
     const storeB = new IndexStore(dir, new GrammarRegistry());
-    const res = await runArchQuery(storeB, dir, { concept: 'document-copy' });
+    const res = await runArchQuery(storeB, dir, { concept: 'record-clone' });
 
-    // It inherited the concept and resolved all three members live.
     assert.deepEqual(
       res.resolved.map((r) => r.file).sort(),
-      ['apps/fork-document.ts', 'apps/template-clone.ts', 'functions/clone-template-content.ts'],
+      ['apps/clone-user.ts', 'apps/duplicate-account.ts', 'workers/hand-clone-record.ts'],
     );
 
-    // And it flagged the orphan as a conformance violation — a path session B never
-    // independently discovered, caught only because the assertion re-checks the rule.
     assert.equal(res.conformance?.total, 3);
     assert.equal(res.conformance?.conforming, 2);
     assert.deepEqual(
       res.conformance?.violations.map((v) => v.file),
-      ['functions/clone-template-content.ts'],
+      ['workers/hand-clone-record.ts'],
     );
     assert.match(res.text, /CONFORMANCE/);
-    assert.match(res.text, /functions\/clone-template-content\.ts/);
+    assert.match(res.text, /workers\/hand-clone-record\.ts/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -94,17 +84,16 @@ test('fixing the orphan clears the violation (conformance re-checks live)', asyn
   try {
     const storeA = new IndexStore(dir, new GrammarRegistry());
     await storeA.sync();
-    await runArchAssert(dir, DOCUMENT_COPY);
+    await runArchAssert(dir, RECORD_CLONE);
 
-    // The fix: the orphan now imports the badge re-numberer too.
     writeFileSync(
-      join(dir, 'functions/clone-template-content.ts'),
-      "import { normalizeLinkOrderForCanvas } from '@lib/link-order';\n" +
-        'export function cloneTemplateContent() { return { cloned: normalizeLinkOrderForCanvas([]) }; }\n',
+      join(dir, 'workers/hand-clone-record.ts'),
+      "import { reindexAfterClone } from '@lib/reindex';\n" +
+        'export function handCloneRecord() { return { cloned: reindexAfterClone([]) }; }\n',
     );
 
     const storeB = new IndexStore(dir, new GrammarRegistry());
-    const res = await runArchQuery(storeB, dir, { concept: 'document-copy' });
+    const res = await runArchQuery(storeB, dir, { concept: 'record-clone' });
     assert.equal(res.conformance?.violations.length, 0);
     assert.match(res.text, /✓ conformance/);
   } finally {
@@ -117,12 +106,12 @@ test('arch_list shows the asserted concept', async () => {
   try {
     const storeA = new IndexStore(dir, new GrammarRegistry());
     await storeA.sync();
-    await runArchAssert(dir, DOCUMENT_COPY);
+    await runArchAssert(dir, RECORD_CLONE);
 
     const storeB = new IndexStore(dir, new GrammarRegistry());
     const list = await runArchList(storeB, dir);
     assert.equal(list.conceptCount, 1);
-    assert.match(list.text, /document-copy — Document copy paths/);
+    assert.match(list.text, /record-clone — Record clone paths/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -133,17 +122,17 @@ test('re-asserting the same id updates in place; a second assertion is preserved
   try {
     const store = new IndexStore(dir, new GrammarRegistry());
     await store.sync();
-    await runArchAssert(dir, DOCUMENT_COPY);
-    await runArchAssert(dir, { ...DOCUMENT_COPY, title: 'Document copy paths (revised)' });
+    await runArchAssert(dir, RECORD_CLONE);
+    await runArchAssert(dir, { ...RECORD_CLONE, title: 'Record clone paths (revised)' });
     await runArchAssert(dir, {
       id: 'persistence-island',
       title: 'Persistence island',
-      locators: [{ kind: 'import', of: '@lib/graph-clone' }],
+      locators: [{ kind: 'import', of: '@lib/record-clone' }],
     });
 
     const list = await runArchList(new IndexStore(dir, new GrammarRegistry()), dir);
-    assert.equal(list.conceptCount, 2); // updated, not duplicated
-    assert.match(list.text, /Document copy paths \(revised\)/);
+    assert.equal(list.conceptCount, 2);
+    assert.match(list.text, /Record clone paths \(revised\)/);
     assert.match(list.text, /persistence-island/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

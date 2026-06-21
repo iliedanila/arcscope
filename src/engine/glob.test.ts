@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { matchGlob } from './glob.js';
 
 test('** matches across segments', () => {
-  assert.ok(matchGlob('libs/features/graph/x.ts', 'libs/features/**'));
+  assert.ok(matchGlob('libs/features/app/x.ts', 'libs/features/**'));
   assert.ok(matchGlob('src/a/b/c.ts', 'src/**/*.ts'));
   assert.ok(matchGlob('src/c.ts', 'src/**/*.ts'));
 });

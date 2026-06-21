@@ -29,8 +29,8 @@ test('loads concepts with locators and ordered stages', () => {
       '  editor-state-flow:',
       '    title: Pipeline',
       '    stages:',
-      '      - { title: Facade, kind: symbol, query: "class GraphEditorFacade", in: "libs/**" }',
-      '      - { title: Router, kind: symbol, query: "class ActionRouterService" }',
+      '      - { title: Facade, kind: symbol, query: "class EditorFacade", in: "libs/**" }',
+      '      - { title: Router, kind: symbol, query: "class ActionRouter" }',
     ].join('\n'),
     (p) => {
       const v = loadVocabulary(p);

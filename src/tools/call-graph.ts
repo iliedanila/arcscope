@@ -9,7 +9,7 @@ export const callGraphInputShape = {
   symbol: z
     .string()
     .min(1)
-    .describe('The entry-point function or method to trace outgoing calls from (e.g. a flow entry like \'forkDocument\').'),
+    .describe('The entry-point function or method to trace outgoing calls from (e.g. a flow entry like \'cloneUser\').'),
   pathGlob: z.string().optional().describe("Optional path glob to disambiguate the symbol's definition, e.g. 'apps/**'."),
   depth: z.number().int().min(1).max(8).optional().describe('Max call-tree depth (default 5).'),
 };

@@ -14,7 +14,7 @@ export const findRefsInputShape = {
   symbol: z
     .string()
     .min(1)
-    .describe("Exact symbol name to find references to (case-sensitive), e.g. 'GraphReducer'."),
+    .describe("Exact symbol name to find references to (case-sensitive), e.g. 'useAuth'."),
   pathGlob: z
     .string()
     .optional()

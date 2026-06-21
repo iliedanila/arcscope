@@ -47,19 +47,17 @@ test('on an exact miss, find_def suggests symbols with similar names', async () 
   try {
     writeFileSync(
       join(dir, 's.ts'),
-      'export class DocumentNormalizerService {}\nexport function normalizeDocument(){}',
+      'export class IndexerService {}\nexport function rebuildIndex(){}',
     );
     const store = new IndexStore(dir, new GrammarRegistry());
 
-    // The exact-but-wrong name the agent guessed in the dogfood run.
-    const miss = await runFindDef(store, { symbol: 'DocumentNormalizer' });
+    const miss = await runFindDef(store, { symbol: 'Indexer' });
     assert.equal(miss.records.length, 0);
-    assert.ok(miss.suggestions.some((s) => s.symbol === 'DocumentNormalizerService' && s.kind === 'class'));
+    assert.ok(miss.suggestions.some((s) => s.symbol === 'IndexerService' && s.kind === 'class'));
     assert.match(miss.text, /similar name/);
-    assert.match(miss.text, /DocumentNormalizerService/);
+    assert.match(miss.text, /IndexerService/);
 
-    // Exact match still returns the precise result with no suggestions.
-    const hit = await runFindDef(store, { symbol: 'DocumentNormalizerService' });
+    const hit = await runFindDef(store, { symbol: 'IndexerService' });
     assert.equal(hit.records.length, 1);
     assert.equal(hit.suggestions.length, 0);
 

@@ -22,7 +22,7 @@ const FUNCTION_NODE_TYPES = new Set([
   'method_definition',
 ]);
 
-// k-gram (shingle) length over the node-type sequence. Validated on the dogfood:
+// k-gram (shingle) length over the node-type sequence. Validated empirically:
 // K=5 was too brittle — realistic divergence (type annotations, `??` vs `||`, one
 // extra statement) shatters the 5-grams, so an obvious hand-mirrored clone scored
 // ~0.3-0.5 and was silently missed at any safe threshold. K=3 lifts diverged clones

@@ -9,7 +9,7 @@ const locatorSchema = z.discriminatedUnion('kind', [
 ]);
 
 export const archAssertInputShape = {
-  id: z.string().min(1).describe("kebab-case concept id, e.g. 'document-copy'."),
+  id: z.string().min(1).describe("kebab-case concept id, e.g. 'record-clone'."),
   title: z.string().min(1).describe('Short human-readable title for the concept.'),
   description: z.string().optional().describe('One-line description of what the concept is.'),
   locators: z
@@ -34,7 +34,7 @@ export const archAssertInputShape = {
     .optional()
     .describe(
       'Optional invariant every member file must satisfy (conformance). Members not matched by these locators are ' +
-        'reported as violations on every arch_query. E.g. must import the module that re-numbers badges.',
+        'reported as violations on every arch_query. E.g. must import the module that re-indexes after cloning.',
     ),
 };
 

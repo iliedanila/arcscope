@@ -8,9 +8,9 @@ test('parses kind + name pattern + optional value constraint', () => {
     namePattern: 'I*Repository',
     valueConstraint: undefined,
   });
-  assert.deepEqual(parseSymbolQuery('class GraphReducer'), {
+  assert.deepEqual(parseSymbolQuery('class StateReducer'), {
     kind: 'class',
-    namePattern: 'GraphReducer',
+    namePattern: 'StateReducer',
     valueConstraint: undefined,
   });
   assert.deepEqual(parseSymbolQuery('const *_REPOSITORY = InjectionToken'), {
