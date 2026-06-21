@@ -1,8 +1,9 @@
-import { join } from 'node:path';
 import { z } from 'zod';
 import type { IndexStore } from '../engine/index-store.js';
-import { loadVocabulary } from '../knowledge/vocab-loader.js';
+import { loadKnowledge } from '../knowledge/vocab-loader.js';
 import { resolveConceptSafe } from '../knowledge/resolver.js';
+import { checkConformance } from '../knowledge/conformance.js';
+import type { ConformanceReport } from '../knowledge/conformance.js';
 import { computeAnchors, compareDrift, loadAnchorStore, baselineFor, captureBaseline } from '../knowledge/drift.js';
 import type { DriftReport } from '../knowledge/drift.js';
 import type { Concept, ResolvedLocation } from '../knowledge/types.js';
@@ -19,18 +20,20 @@ export interface ArchQueryResult {
   resolved: ResolvedLocation[];
   freshness: string;
   drift?: DriftReport;
+  conformance?: ConformanceReport;
   text: string;
 }
 
 // Resolve one named concept LIVE against the current tree — never cached prose.
-// (Drift detection is layered on in Slice 2.)
+// Merges the human vocab with agent-written assertions, flags drift, and (when the
+// concept declares a `must` invariant) re-checks conformance every call.
 export async function runArchQuery(
   store: IndexStore,
   root: string,
   args: { concept: string; reaccept?: boolean },
 ): Promise<ArchQueryResult> {
   await store.sync();
-  const vocab = loadVocabulary(join(root, '.arcscope', 'vocab.yaml'));
+  const vocab = loadKnowledge(root);
   const concept = vocab.concepts.find((c) => c.id === args.concept);
   if (!concept) {
     const known = vocab.concepts.length
@@ -61,7 +64,15 @@ export async function runArchQuery(
     freshness = drift.status === 'drifted' ? 'DRIFTED' : 'fresh';
   }
 
-  return { resolved, freshness, drift, text: formatConcept(concept, resolved, freshness, drift) };
+  const conformance = checkConformance(store, concept, resolved);
+
+  return {
+    resolved,
+    freshness,
+    drift,
+    conformance,
+    text: formatConcept(concept, resolved, freshness, drift, conformance),
+  };
 }
 
 export function formatConcept(
@@ -69,9 +80,11 @@ export function formatConcept(
   resolved: ResolvedLocation[],
   freshness?: string,
   drift?: DriftReport,
+  conformance?: ConformanceReport,
 ): string {
   const tag = freshness ? `, ${freshness}` : ', answered live';
-  const head = `Concept \`${concept.id}\` — ${concept.title} (${resolved.length} location${resolved.length === 1 ? '' : 's'}${tag}):`;
+  const src = concept.source === 'agent' ? ' [agent-asserted]' : '';
+  const head = `Concept \`${concept.id}\`${src} — ${concept.title} (${resolved.length} location${resolved.length === 1 ? '' : 's'}${tag}):`;
   const body: string[] = [];
   if (concept.description) body.push(`  ${concept.description}`);
 
@@ -97,6 +110,21 @@ export function formatConcept(
     for (const k of drift.removed.slice(0, 5)) body.push(`    - ${k}`);
     for (const k of drift.changed.slice(0, 5)) body.push(`    ~ ${k} (definition changed)`);
     body.push('  If this change is correct, re-run arch_query with reaccept:true to update the baseline.');
+  }
+
+  if (conformance) {
+    const label = conformance.invariantTitle ? `: ${conformance.invariantTitle}` : '';
+    if (conformance.violations.length === 0) {
+      body.push('', `  ✓ conformance${label} — all ${conformance.total} members satisfy the invariant.`);
+    } else {
+      body.push(
+        '',
+        `  ✗ CONFORMANCE${label} — ${conformance.violations.length} of ${conformance.total} members VIOLATE the invariant:`,
+      );
+      for (const v of conformance.violations.slice(0, 10)) {
+        body.push(`    ✗ ${v.file}${v.symbol ? ` (${v.symbol})` : ''} — does not satisfy the rule`);
+      }
+    }
   }
   return [head, ...body].join('\n');
 }

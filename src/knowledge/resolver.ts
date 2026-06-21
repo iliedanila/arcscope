@@ -15,7 +15,14 @@ export function resolveConcept(store: IndexStore, concept: Concept): ResolvedLoc
     }
     return out;
   }
-  return (concept.locators ?? []).flatMap((loc) => resolveLocator(store, loc));
+  return resolveLocators(store, concept.locators ?? []);
+}
+
+// Resolve a flat list of locators (members of a concept, or the locators of a
+// `must` invariant) against the live index. Used by both the concept resolver and
+// the conformance checker so they share one resolution path.
+export function resolveLocators(store: IndexStore, locators: Locator[]): ResolvedLocation[] {
+  return locators.flatMap((loc) => resolveLocator(store, loc));
 }
 
 export interface ConceptResolution {

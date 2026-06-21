@@ -10,6 +10,7 @@ import { runFindRefs, findRefsInputShape } from '../tools/find-refs.js';
 import { runDepGraph, depGraphInputShape } from '../tools/dep-graph.js';
 import { runArchList } from '../tools/arch-list.js';
 import { runArchQuery, archQueryInputShape } from '../tools/arch-query.js';
+import { runArchAssert, archAssertInputShape } from '../tools/arch-assert.js';
 import { log, logError } from '../log.js';
 
 // Read from package.json (shipped in the tarball) so it never drifts from the
@@ -46,6 +47,11 @@ const INSTRUCTIONS = [
   'to resolve one live to its current code locations. These answer concept-level questions ("the repository',
   'tokens", "the action pipeline") that grep and docs can\'t — recomputed every call, so they never go stale.',
   '',
+  'Use arch_assert to RECORD a concept you worked out (a binding of locators + an optional "must" invariant) so a',
+  'later session inherits it. arcscope re-verifies it live every call and flags members that violate the rule —',
+  "so durable architecture knowledge accrues across sessions without going stale. Use it when you've established",
+  'a cross-cutting concept or rule the code structure does not name on its own.',
+  '',
   "Every result is labeled with a precision tier so you can calibrate trust (currently",
   "'tree-sitter': structural and high-signal, but not compiler-exact).",
 ].join('\n');
@@ -61,7 +67,17 @@ const ARCH_QUERY_DESCRIPTION = [
   'Resolve one named architecture concept to its live code locations. Use when you need to understand or change a',
   'declared concept (from arch_list) — it recomputes the locator against the current tree and returns the exact',
   'files/symbols (a staged concept comes back as an ordered pipeline). More reliable than reading prose docs,',
-  'which silently rot; this is recomputed every call and flags drift.',
+  'which silently rot; this is recomputed every call and flags drift. If the concept declares an invariant',
+  '(a "must" rule), it also reports conformance — which members violate the rule, re-checked live every call.',
+].join(' ');
+
+const ARCH_ASSERT_DESCRIPTION = [
+  'Record an architecture concept you have worked out so a LATER session inherits it. Use when you discover a',
+  'cross-cutting concept the structure does not name on its own — e.g. "every way a document is copied", or an',
+  'invariant like "every copy path must call normalizeLinkOrderForCanvas". You write a BINDING (locators that',
+  'resolve to the members live — symbol/path/import; pin a scattered member with a path locator) plus an optional',
+  'invariant (a "must" rule every member must satisfy). arcscope stores it as a re-checked assertion, never a bare',
+  'fact: it re-resolves and re-verifies against current code on every arch_query, so it cannot silently rot.',
 ].join(' ');
 
 const DEP_GRAPH_DESCRIPTION = [
@@ -198,6 +214,24 @@ export async function serve(root: string): Promise<void> {
         logError('arch_query failed:', err);
         return {
           content: [{ type: 'text', text: `arch_query error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'arch_assert',
+    { title: 'Record an architecture assertion', description: ARCH_ASSERT_DESCRIPTION, inputSchema: archAssertInputShape },
+    async (args) => {
+      void counter.record('arch_assert', args);
+      try {
+        const { text } = await runArchAssert(root, args as Parameters<typeof runArchAssert>[1]);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('arch_assert failed:', err);
+        return {
+          content: [{ type: 'text', text: `arch_assert error: ${err instanceof Error ? err.message : String(err)}` }],
           isError: true,
         };
       }

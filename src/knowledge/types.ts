@@ -30,6 +30,16 @@ export type Locator = SymbolLocator | PathLocator | ImportLocator;
 // pipeline) are returned in sequence.
 export type Stage = Locator & { title: string };
 
+// An invariant (the `must` clause): a rule every member of a concept has to
+// satisfy, expressed in the SAME locator vocabulary. Conformance = every member
+// file must appear in the set resolved by these locators; members outside it are
+// violations. This is what makes an agent-written assertion safe — it is
+// re-checked against live code on every read, never stored as a bare fact.
+export interface Invariant {
+  title?: string;
+  locators: Locator[];
+}
+
 export interface Concept {
   id: string;
   title: string;
@@ -37,6 +47,8 @@ export interface Concept {
   note?: string; // honest note for degraded concepts (anchors-only)
   locators?: Locator[];
   stages?: Stage[];
+  must?: Invariant; // optional conformance rule (v2)
+  source?: 'vocab' | 'agent'; // provenance: human-authored vs agent-asserted (assigned at load)
 }
 
 export interface Vocabulary {

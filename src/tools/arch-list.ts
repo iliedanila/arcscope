@@ -1,6 +1,5 @@
-import { join } from 'node:path';
 import type { IndexStore } from '../engine/index-store.js';
-import { loadVocabulary } from '../knowledge/vocab-loader.js';
+import { loadKnowledge } from '../knowledge/vocab-loader.js';
 import { resolveConceptSafe } from '../knowledge/resolver.js';
 import { computeAnchors, compareDrift, loadAnchorStore, baselineFor } from '../knowledge/drift.js';
 
@@ -14,7 +13,7 @@ export interface ArchListResult {
 // (that's arch_query's job), so unqueried concepts show as "unverified".
 export async function runArchList(store: IndexStore, root: string): Promise<ArchListResult> {
   await store.sync();
-  const vocab = loadVocabulary(join(root, '.arcscope', 'vocab.yaml'));
+  const vocab = loadKnowledge(root);
   if (vocab.concepts.length === 0) {
     return {
       conceptCount: 0,
@@ -24,7 +23,8 @@ export async function runArchList(store: IndexStore, root: string): Promise<Arch
   const anchorStore = loadAnchorStore(root);
   const lines = vocab.concepts.map((c) => {
     const { locations: resolved, error } = resolveConceptSafe(store, c);
-    const label = `  ${c.id}${c.stages ? ' (staged)' : ''} — ${c.title}`;
+    const provenance = c.source === 'agent' ? ' [agent]' : '';
+    const label = `  ${c.id}${c.stages ? ' (staged)' : ''}${provenance} — ${c.title}`;
     if (error) return `${label} · ⚠ invalid locator: ${error}`;
     const baseline = baselineFor(anchorStore, c.id);
     const freshness = baseline ? compareDrift(computeAnchors(root, resolved), baseline).status : 'unverified';
