@@ -51,6 +51,23 @@ function unrelated(a, b) {
 }`;
 const TRIVIAL = `function tiny() { return 1; }`;
 
+// A REALISTICALLY diverged clone (Type-3): renamed + type annotations + an `as`
+// cast + `??` + an extra guard + a wrapper call — the shape a real hand-mirror
+// takes. The identical-structure test is necessary but NOT sufficient: validating
+// on the real dogfood showed the original K=5 build scored this kind of divergence
+// ~0.3 and silently missed the actual re-implementation. This locks in the K=3
+// separation that catches it.
+const DIVERGED_FROM_A = `
+function copyNode(item: SourceNode, table: Map<string, string>): ClonedNode {
+  const fresh: ClonedNode = { id: table.get(item.id) as string, elements: [] };
+  if (!item.elements) { return fresh; }
+  for (const piece of toArray(item.elements)) {
+    if (piece.link ?? false) { fresh.elements.push(copyElement(piece, table)); }
+    else { fresh.elements.push(piece); }
+  }
+  return fresh;
+}`;
+
 test('renamed-only clone (different names, same shape) scores 1.0 — name-independent', async () => {
   const fps = await fingerprintsOf(CLONE_A + CLONE_B_RENAMED);
   assert.equal(similarity(find(fps, 'cloneNode'), find(fps, 'copyNode')), 1);
@@ -64,4 +81,13 @@ test('structurally different functions score low', async () => {
 test('trivial functions are skipped (below the size floor)', async () => {
   const fps = await fingerprintsOf(CLONE_A + TRIVIAL);
   assert.deepEqual(fps.map((f) => f.name), ['cloneNode']); // tiny() omitted
+});
+
+test('a realistically diverged clone is detected and stays well clear of unrelated code', async () => {
+  const fps = await fingerprintsOf(CLONE_A + DIVERGED_FROM_A + UNRELATED);
+  const clone = similarity(find(fps, 'cloneNode'), find(fps, 'copyNode'));
+  const noise = similarity(find(fps, 'cloneNode'), find(fps, 'unrelated'));
+  assert.ok(clone >= 0.3, `diverged clone should score >= 0.3, got ${clone.toFixed(3)}`);
+  assert.ok(noise < 0.15, `unrelated should score < 0.15, got ${noise.toFixed(3)}`);
+  assert.ok(clone > noise * 2.5, `clone (${clone.toFixed(3)}) must separate clearly from noise (${noise.toFixed(3)})`);
 });

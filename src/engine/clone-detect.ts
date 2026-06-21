@@ -22,7 +22,12 @@ const FUNCTION_NODE_TYPES = new Set([
   'method_definition',
 ]);
 
-const K = 5; // k-gram (shingle) length over the node-type sequence
+// k-gram (shingle) length over the node-type sequence. Validated on the dogfood:
+// K=5 was too brittle — realistic divergence (type annotations, `??` vs `||`, one
+// extra statement) shatters the 5-grams, so an obvious hand-mirrored clone scored
+// ~0.3-0.5 and was silently missed at any safe threshold. K=3 lifts diverged clones
+// to a usable band while keeping unrelated code well separated.
+const K = 3;
 const MIN_TOKENS = 20; // skip trivial functions — too small to match meaningfully
 
 // Fingerprint every function-like node in an already-parsed tree. The caller owns
