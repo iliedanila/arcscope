@@ -31,7 +31,7 @@ test('formatStats reports usage, knowledge, and adoption note', () => {
     assert.match(out, /find_def: 1/);
     assert.match(out, /1 concept\(s\) in \.arcscope\/assertions\.yaml/);
     assert.match(out, /1 concept\(s\) with a captured baseline/);
-    assert.match(out, /adoption-report\.mjs/);
+    assert.match(out, /Adoption \(grep vs arcscope\)/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
