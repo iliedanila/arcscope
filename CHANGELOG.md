@@ -4,6 +4,48 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-06-21
+
+A major expansion: an agent-authored knowledge layer and a compiler-exact precise
+tier. Nine tools (was five). All still fully local — no network at query time or at
+spawn.
+
+### Added
+
+- **Precise tier (TypeScript).** A local `ts.Program` + language service (no network)
+  that resolves **method dispatch** — `this.service.foo()` to the concrete
+  implementation, including DI and inheritance — which tree-sitter cannot.
+  - **`call_graph`** — the method-resolved outgoing call closure from an entry point.
+  - **`flow`** — the complete surface of a flow before changing it: the call closure
+    plus a per-function structural edge-case checklist (branches / error handling /
+    async) and a rollup, so a change accounts for every case.
+  - **`find_refs` is now compiler-exact for methods** — member access (`obj.method()`)
+    resolves to its call sites and concrete implementation. Functions/classes/consts/
+    types stay on the fast tree-sitter import path. **The member-access caveat is
+    retired.**
+- **Agent-authored knowledge (a read-write vocabulary).**
+  - **`arch_assert`** — the agent records a concept (a binding of live locators) so a
+    later session inherits it, re-verified on read — never a frozen fact.
+  - **Conformance (`must`)** — a concept can carry an invariant every member must
+    satisfy, re-checked live; violations surface on every `arch_query`.
+  - **`arch_candidates`** — finds a concept's likely **missing** members by structural
+    (AST-shape) similarity, name-independent — the "fixed it twice" antidote.
+  - **Flow concepts** — `arch_assert` a reviewed flow by entry point; `arch_query`
+    recomputes it live (precise tier) and **drifts** when a function enters/leaves it.
+
+### Changed
+
+- Concepts merge the human-authored `vocab.yaml` with an agent-owned `assertions.yaml`,
+  with provenance shown.
+- Results carry a `precisionTier` of `typescript` when resolved compiler-exact.
+- `typescript` is now a runtime dependency.
+
+### Notes
+
+- The precise tier is TS/JS-only and per-`tsconfig`; it builds a program on first use
+  (cached after). Residual limits (`any`/higher-order callbacks, runtime-wired DI
+  providers, cross-project flows) are counted at the boundary, never hidden.
+
 ## [0.0.4] - 2026-06-20
 
 ### Changed
