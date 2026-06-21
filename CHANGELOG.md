@@ -6,8 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-22
+
+### Added
+
+- **`arcscope stats` now answers "is it useful?", not just "how much".** Alongside the
+  per-tool usage summary (read from `.arcscope/usage.jsonl`), `stats` reads the newest
+  local Claude Code session transcript for the repo and reports arcscope's share of
+  `arcscope + grep` — the grep-vs-tool adoption signal the server can't observe on its
+  own. Fully local; no transcript → the usage half still prints. The Bash classifier
+  counts only real grep invocations (`grep` / `rg` / `git grep` as a command's first
+  word), not commands that merely mention the word. Transcript discovery targets Claude
+  Code's exact per-cwd project dir so short repo names can't match unrelated projects.
+
 ### Removed
 
+- The `scripts/adoption-report.mjs` dev script. Its grep-vs-tool logic moved into
+  `src/adoption/report.ts` (now shipped in the package) and folded into `arcscope stats`,
+  so consumers get the adoption signal after `npm i` instead of it living only in source.
 - The human-editable `.arcscope/vocab.yaml`. The knowledge layer is now
   **agent-authored only**: a single committed `.arcscope/assertions.yaml` written via
   `arch_assert`, re-verified live on read. `init` no longer scaffolds a starter vocab;
