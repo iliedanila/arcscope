@@ -6,6 +6,15 @@ import type { PreciseProject } from './program-store.js';
 // their concrete impl via the LanguageService impl hop). `externalCalls` /
 // `unresolvedCalls` count the DISTINCT callees that leave the in-repo graph
 // (library/.d.ts) or could not be resolved (any/higher-order) — the honest boundary.
+// The structural edge cases inside one function — the decision/error/async points
+// a change must account for. Counted from the AST; absence of handling near a new
+// behaviour is where bugs hide. Zeroed unless ClosureOptions.collectEdgeCases.
+export interface EdgeCases {
+  branches: number; // if / ternary / case clause — behaviour forks
+  errorHandling: number; // try-catch / throw — failure paths
+  asyncPoints: number; // await — async failure/race points
+}
+
 export interface CallNode {
   symbol: string;
   file: string; // root-relative-posix
@@ -14,6 +23,7 @@ export interface CallNode {
   children: CallNode[];
   externalCalls: number;
   unresolvedCalls: number;
+  edges: EdgeCases;
   truncated: boolean; // hit depth/size cap
   recursion: boolean; // this node is its own ancestor (a real cycle)
   seenElsewhere: boolean; // already expanded under another parent (DAG re-convergence) — not re-expanded
@@ -24,6 +34,7 @@ export interface ClosureOptions {
   maxNodes: number;
   maxImplsPerCall: number;
   relPath: (absFile: string) => string;
+  collectEdgeCases?: boolean; // also tally if/try/throw/await per function (the flow surface)
 }
 
 export interface ClosureResult {
@@ -64,6 +75,7 @@ export function callClosure(proj: PreciseProject, focus: FnDecl, opts: ClosureOp
       children: [],
       externalCalls: 0,
       unresolvedCalls: 0,
+      edges: { branches: 0, errorHandling: 0, asyncPoints: 0 },
       truncated: false,
       recursion: false,
       seenElsewhere: false,
@@ -92,7 +104,9 @@ export function callClosure(proj: PreciseProject, focus: FnDecl, opts: ClosureOp
 
     const external = new Set<string>();
     const unresolved = new Set<string>();
-    for (const call of callsIn(decl)) {
+    const scan = scanBody(decl, opts.collectEdgeCases === true);
+    node.edges = scan.edges;
+    for (const call of scan.calls) {
       const r = resolveCall(call);
       if (r.kind === 'in-repo') {
         for (const t of r.decls.slice(0, opts.maxImplsPerCall)) {
@@ -175,16 +189,24 @@ export function callClosure(proj: PreciseProject, focus: FnDecl, opts: ClosureOp
   return { root: expand(focus, 0), nodeCount, hitCap };
 }
 
-// Every call/new expression in a declaration's subtree (incl. nested arrows — part
-// of the flow). NewExpression follows constructors.
-function callsIn(decl: ts.Node): CallLike[] {
-  const out: CallLike[] = [];
+// One walk over a function body: collect call/new expressions (incl. nested arrows
+// — part of the flow), and optionally tally the structural edge cases. The walk
+// stops at the function's own AST — callee bodies are separate nodes, so edge cases
+// are never double-counted.
+function scanBody(decl: ts.Node, collectEdges: boolean): { calls: CallLike[]; edges: EdgeCases } {
+  const calls: CallLike[] = [];
+  const edges: EdgeCases = { branches: 0, errorHandling: 0, asyncPoints: 0 };
   const walk = (n: ts.Node): void => {
-    if (ts.isCallExpression(n) || ts.isNewExpression(n)) out.push(n);
+    if (ts.isCallExpression(n) || ts.isNewExpression(n)) calls.push(n);
+    if (collectEdges) {
+      if (ts.isIfStatement(n) || ts.isConditionalExpression(n) || ts.isCaseClause(n)) edges.branches++;
+      else if (ts.isTryStatement(n) || ts.isThrowStatement(n)) edges.errorHandling++;
+      else if (ts.isAwaitExpression(n)) edges.asyncPoints++;
+    }
     n.forEachChild(walk);
   };
   decl.forEachChild(walk);
-  return out;
+  return { calls, edges };
 }
 
 function hasBody(d: ts.SignatureDeclaration): d is FnDecl {

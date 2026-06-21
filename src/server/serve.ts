@@ -14,6 +14,7 @@ import { runArchQuery, archQueryInputShape } from '../tools/arch-query.js';
 import { runArchAssert, archAssertInputShape } from '../tools/arch-assert.js';
 import { runArchCandidates, archCandidatesInputShape } from '../tools/arch-candidates.js';
 import { runCallGraph, callGraphInputShape } from '../tools/call-graph.js';
+import { runFlow, flowInputShape } from '../tools/flow.js';
 import { log, logError } from '../log.js';
 
 // Read from package.json (shipped in the tarball) so it never drifts from the
@@ -63,6 +64,10 @@ const INSTRUCTIONS = [
   'resolves to the concrete implementation (DI/inheritance), which find_refs cannot. Use it to see the full surface a flow',
   'touches before you change it. Heavier than the tree-sitter tools (builds a TypeScript program); use it deliberately.',
   '',
+  'Use flow to map the COMPLETE surface of a flow BEFORE changing it — the resolved call closure from an entry point PLUS',
+  "each function's edge cases (branches/errors/async), so you catch every case a change must handle. Reach for it when",
+  'planning a change to a flow you do not fully know. Heavier (builds a TS program); deliberate use.',
+  '',
   "Every result is labeled with a precision tier so you can calibrate trust (currently",
   "'tree-sitter': structural and high-signal, but not compiler-exact).",
 ].join('\n');
@@ -107,6 +112,15 @@ const CALL_GRAPH_DESCRIPTION = [
   'surface a flow touches BEFORE changing it — every in-repo function it transitively calls. Calls into libraries',
   'and unresolved (any/higher-order) calls are counted at the boundary. Precision tier: typescript. Heavier than',
   'the tree-sitter tools: the first call to a given TypeScript project builds its program (seconds); later calls reuse it.',
+].join(' ');
+
+const FLOW_DESCRIPTION = [
+  'Map the COMPLETE surface of one flow BEFORE changing it. Give an entry point (a service method, an action handler,',
+  'the function you are about to modify) and get its method-resolved call closure — every in-repo function the flow',
+  "transitively touches, dispatch resolved through the type checker — annotated with each function's structural EDGE",
+  'CASES (branches, error handling, async boundaries). Use it to catch every case a change must handle and to see the',
+  'full area before you write. Returns a flow tree + an edge-case rollup. Precision tier: typescript; heavier than the',
+  'tree-sitter tools (builds a TS program on first use) — use it deliberately when planning a change.',
 ].join(' ');
 
 const DEP_GRAPH_DESCRIPTION = [
@@ -298,6 +312,24 @@ export async function serve(root: string): Promise<void> {
         logError('call_graph failed:', err);
         return {
           content: [{ type: 'text', text: `call_graph error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'flow',
+    { title: 'Map a flow surface', description: FLOW_DESCRIPTION, inputSchema: flowInputShape },
+    async (args) => {
+      void counter.record('flow', args);
+      try {
+        const { text } = await runFlow(store, programStore, root, args);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('flow failed:', err);
+        return {
+          content: [{ type: 'text', text: `flow error: ${err instanceof Error ? err.message : String(err)}` }],
           isError: true,
         };
       }
