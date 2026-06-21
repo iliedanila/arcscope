@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeMcpJson, ensureGitignore } from './init.js';
+import { writeMcpJson, ensureGitignore, mcpBinArg } from './init.js';
+
+test('mcpBinArg prefers a project-relative path when the bin is inside the repo', () => {
+  assert.equal(mcpBinArg('/proj', '/proj/node_modules/arcscope/dist/index.js'), 'node_modules/arcscope/dist/index.js');
+  assert.equal(mcpBinArg('/proj', '/elsewhere/arcscope/dist/index.js'), '/elsewhere/arcscope/dist/index.js');
+});
 
 test('writeMcpJson writes an offline node command', () => {
   const dir = mkdtempSync(join(tmpdir(), 'arcscope-init-'));
@@ -42,6 +47,18 @@ test('writeMcpJson recovers from malformed existing json', () => {
     writeFileSync(mcp, '{ not valid json');
     writeMcpJson(mcp, '/abs/dist/index.js');
     assert.equal(JSON.parse(readFileSync(mcp, 'utf8')).mcpServers.arcscope.command, 'node');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('writeMcpJson creates parent directories', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arcscope-init-'));
+  try {
+    const mcp = join(dir, '.cursor', 'mcp.json');
+    writeMcpJson(mcp, 'node_modules/arcscope/dist/index.js');
+    const cfg = JSON.parse(readFileSync(mcp, 'utf8'));
+    assert.equal(cfg.mcpServers.arcscope.args[0], 'node_modules/arcscope/dist/index.js');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
