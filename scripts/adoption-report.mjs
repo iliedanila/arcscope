@@ -109,11 +109,11 @@ console.log(`  find_def share of (find_def + grep): ${decisive ? Math.round((cou
 
 try {
   const usage = readFileSync(join(repo, '.arcscope', 'usage.jsonl'), 'utf8').trim().split('\n').filter(Boolean);
-  console.log(`\n=== server-side counter: ${usage.length} find_def call(s) in ${repo}/.arcscope/usage.jsonl ===`);
+  console.log(`\n=== server-side counter: ${usage.length} arcscope tool call(s) in ${repo}/.arcscope/usage.jsonl ===`);
   for (const l of usage) {
     const u = JSON.parse(l);
     console.log(`  ${u.ts}  ${u.tool}  ${JSON.stringify(u.args)}`);
   }
 } catch {
-  console.log(`\n(no .arcscope/usage.jsonl in ${repo} yet — no find_def calls recorded server-side)`);
+  console.log(`\n(no .arcscope/usage.jsonl in ${repo} yet — no arcscope tool calls recorded server-side)`);
 }

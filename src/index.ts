@@ -18,12 +18,18 @@ try {
       await serve(root);
       break;
     }
+    case 'stats': {
+      const { stats } = await import('./stats/stats.js');
+      stats(root);
+      break;
+    }
     default: {
       process.stderr.write(
         'arcscope — fully-local, architecture-aware code-navigation MCP server\n\n' +
           'Usage:\n' +
-          '  arcscope init    Set up this repo: index once, write .mcp.json, update .gitignore\n' +
-          '  arcscope serve   Run the MCP server over stdio (spawned by your MCP client)\n',
+          '  arcscope init    Set up this repo: index once, write MCP config, update .gitignore\n' +
+          '  arcscope serve   Run the MCP server over stdio (spawned by your MCP client)\n' +
+          '  arcscope stats   Summarize local MCP usage (.arcscope/usage.jsonl)\n',
       );
       process.exit(command ? 1 : 0);
     }

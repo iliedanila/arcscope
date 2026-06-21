@@ -6,9 +6,11 @@ A fully-local MCP server that gives an AI coding agent precise views of an unfam
 
 ```bash
 npm i -D arcscope
-npx arcscope init        # index once, write an offline .mcp.json, update .gitignore
-# restart your MCP client (e.g. Claude Code) — it reads .mcp.json and connects
+npx arcscope init        # index once, write MCP config, update .gitignore
+# reload Cursor (Settings → MCP) or restart Claude Code
 ```
+
+`init` writes the same offline `node … serve` entry to **`.cursor/mcp.json`** (Cursor) and **`.mcp.json`** (Claude Code). When arcscope is installed under `node_modules`, the path is project-relative so you can commit `.cursor/mcp.json` for the team.
 
 Everything runs on your machine: **no network at query time or at server spawn, no telemetry, no embeddings.** Breadth comes from tree-sitter (WASM grammars bundled offline); precision comes from the TypeScript compiler running locally. Every result carries a precision tier so the agent never mistakes a heuristic for a compiler-accurate answer.
 
