@@ -12,7 +12,7 @@ export const archCandidatesInputShape = {
     .min(0)
     .max(1)
     .optional()
-    .describe('Minimum structural similarity, 0..1 (default 0.75). Lower = more (and noisier) candidates.'),
+    .describe('Minimum structural similarity, 0..1 (default 0.5). Lower = more (and noisier) candidates.'),
   limit: z.number().int().min(1).max(50).optional().describe('Max candidates to return (default 10).'),
 };
 
@@ -51,7 +51,7 @@ export async function runArchCandidates(
     };
   }
 
-  const threshold = args.threshold ?? 0.75;
+  const threshold = args.threshold ?? 0.5;
   const candidates = findReimplementations(allFps, references, { exclude: referenceFiles, threshold, limit: args.limit ?? 10 });
 
   // The invariant cross-check is a best-effort adornment — a malformed `must`
