@@ -14,6 +14,14 @@ npx arcscope init        # index once, write MCP config, update .gitignore
 
 Everything runs on your machine: **no network at query time or at server spawn, no telemetry, no embeddings.** Breadth comes from tree-sitter (WASM grammars bundled offline); precision comes from the TypeScript compiler running locally. Every result carries a precision tier so the agent never mistakes a heuristic for a compiler-accurate answer.
 
+## How it's being used
+
+```bash
+npx arcscope stats
+```
+
+Every tool call is recorded locally to `.arcscope/usage.jsonl` (no network, no telemetry). `stats` summarizes it: total calls, a **breakdown by tool**, and the most-queried symbols, concepts, and entry points — so you can see at a glance whether the agent is actually reaching for arcscope instead of grep. It also reports your committed concepts and their drift baselines.
+
 ## Tools
 
 | tool | answers |
