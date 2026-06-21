@@ -40,9 +40,9 @@ const INSTRUCTIONS = [
   'skips the comments, strings, and unrelated same-named matches that text search turns up.',
   "When you need \"where is X defined?\", call find_def with the symbol name instead of searching text.",
   '',
-  'Use find_refs to find who references a symbol. It resolves tsconfig aliases and same-name barrel',
-  're-exports (1-hop), so it finds callers grep misses and excludes same-named symbols in unrelated files —',
-  'much more precise than grepping a name. Prefer it for "what uses X?" / "who calls X?".',
+  'Use find_refs to find who references a symbol. For a METHOD it resolves member-access call sites',
+  '(obj.method()) COMPILER-EXACT via the precise tier; for other symbols it resolves tsconfig aliases and',
+  'barrels. It finds callers grep misses and excludes same-named symbols in unrelated files. Prefer it for "what uses X?".',
   '',
   'Use dep_graph to see structure: the most depended-on files (hubs) with no focus, or a file\'s',
   'neighborhood (what it imports / what imports it) with a focus. Prefer it over reading imports by hand.',
@@ -132,13 +132,12 @@ const DEP_GRAPH_DESCRIPTION = [
 ].join(' ');
 
 const FIND_REFS_DESCRIPTION = [
-  'Find where a symbol is referenced (its callers/consumers), following tsconfig path aliases and',
-  'same-name barrel re-exports (1-hop; a renamed re-export like `export { X as Y }` is not yet followed).',
-  'Use when you need who uses a function, class, method, interface, type, or',
-  'constant — e.g. "what calls ActionRouterService?". More precise than text search: it resolves',
-  'which files actually import the symbol, so it excludes same-named symbols in unrelated files and',
-  'includes references reached through barrels. Each reference carries its kind (call/new/type/...)',
-  'and the definition it resolves to.',
+  'Find where a symbol is referenced (its callers/consumers). For a METHOD, references resolve',
+  'COMPILER-EXACT via the precise tier (TypeScript) — including member access (obj.method()), which text',
+  'search and import-resolution miss. For functions/classes/consts/types it follows tsconfig path aliases and',
+  'same-name barrel re-exports (1-hop). Use for "what calls X?" / "who uses X?". More precise than grep:',
+  'it excludes same-named symbols in unrelated files. Each reference carries its kind (call/new/access/type)',
+  'and a precision tier (typescript = compiler-exact; tree-sitter = structural).',
 ].join(' ');
 
 const FIND_DEF_DESCRIPTION = [
@@ -194,7 +193,7 @@ export async function serve(root: string): Promise<void> {
     async (args) => {
       void counter.record('find_refs', args);
       try {
-        const { text } = await runFindRefs(store, registry, root, args);
+        const { text } = await runFindRefs(store, registry, root, args, programStore);
         return { content: [{ type: 'text', text }] };
       } catch (err) {
         logError('find_refs failed:', err);
