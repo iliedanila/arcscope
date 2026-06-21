@@ -114,7 +114,9 @@ export function formatConcept(
 
   if (conformance) {
     const label = conformance.invariantTitle ? `: ${conformance.invariantTitle}` : '';
-    if (conformance.violations.length === 0) {
+    if (conformance.error) {
+      body.push('', `  ⚠ conformance${label} could not be evaluated — invalid invariant locator: ${conformance.error}`);
+    } else if (conformance.violations.length === 0) {
       body.push('', `  ✓ conformance${label} — all ${conformance.total} members satisfy the invariant.`);
     } else {
       body.push(

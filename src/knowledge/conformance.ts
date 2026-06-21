@@ -14,6 +14,7 @@ export interface ConformanceReport {
   total: number; // distinct member files checked
   conforming: number;
   violations: MemberConformance[]; // members that do NOT satisfy the invariant
+  error?: string; // set when the invariant's own locators are malformed (degrade, don't crash)
 }
 
 // Check a concept's `must` invariant against the LIVE index: every member file
@@ -31,7 +32,20 @@ export function checkConformance(
   members: ResolvedLocation[],
 ): ConformanceReport | undefined {
   if (!concept.must) return undefined;
-  const satisfying = new Set(resolveLocators(store, concept.must.locators).map((r) => r.file));
+  let satisfying: Set<string>;
+  try {
+    satisfying = new Set(resolveLocators(store, concept.must.locators).map((r) => r.file));
+  } catch (err) {
+    // A malformed invariant locator degrades to "could not evaluate" rather than
+    // throwing — a committed assertion's typo must not blank the concept.
+    return {
+      invariantTitle: concept.must.title,
+      total: 0,
+      conforming: 0,
+      violations: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 
   const byFile = new Map<string, ResolvedLocation>();
   for (const m of members) if (!byFile.has(m.file)) byFile.set(m.file, m);
