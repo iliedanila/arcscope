@@ -5,8 +5,10 @@ import { resolveConceptSafe } from '../knowledge/resolver.js';
 import { checkConformance } from '../knowledge/conformance.js';
 import type { ConformanceReport } from '../knowledge/conformance.js';
 import { computeAnchors, compareDrift, loadAnchorStore, baselineFor, captureBaseline } from '../knowledge/drift.js';
-import type { DriftReport } from '../knowledge/drift.js';
+import type { Anchor, DriftReport } from '../knowledge/drift.js';
 import type { Concept, ResolvedLocation } from '../knowledge/types.js';
+import type { ProgramStore } from '../engine/program-store.js';
+import { resolveFlow } from './flow.js';
 
 export const archQueryInputShape = {
   concept: z.string().min(1).describe("Concept id from arch_list, e.g. 'repository-tokens' or 'editor-state-flow'."),
@@ -31,8 +33,9 @@ export async function runArchQuery(
   store: IndexStore,
   root: string,
   args: { concept: string; reaccept?: boolean },
+  programStore?: ProgramStore,
 ): Promise<ArchQueryResult> {
-  await store.sync();
+  const sync = await store.sync();
   const vocab = loadKnowledge(root);
   const concept = vocab.concepts.find((c) => c.id === args.concept);
   if (!concept) {
@@ -40,6 +43,13 @@ export async function runArchQuery(
       ? ` Known concepts: ${vocab.concepts.map((c) => c.id).join(', ')}.`
       : ' (.arcscope/vocab.yaml is missing or empty.)';
     return { resolved: [], freshness: 'unknown', text: `No concept "${args.concept}" in the vocabulary.${known}` };
+  }
+
+  if (concept.flow) {
+    // The flow's precise Program must not be stale: this sync already consumed any
+    // change, so invalidate here (resolveFlow's own sync would see nothing changed).
+    if (programStore && (sync.changed > 0 || sync.removed > 0)) programStore.invalidate();
+    return runFlowConcept(store, root, concept, args, programStore);
   }
 
   const { locations: resolved, error } = resolveConceptSafe(store, concept);
@@ -73,6 +83,51 @@ export async function runArchQuery(
     conformance,
     text: formatConcept(concept, resolved, freshness, drift, conformance),
   };
+}
+
+// A flow concept (concept.flow): recompute the flow LIVE via the precise tier and
+// drift on its membership — a function entering or leaving the flow. This is the v2
+// "store an assertion, re-verify on read" principle applied to a whole flow.
+async function runFlowConcept(
+  store: IndexStore,
+  root: string,
+  concept: Concept,
+  args: { reaccept?: boolean },
+  programStore?: ProgramStore,
+): Promise<ArchQueryResult> {
+  if (!programStore) {
+    return { resolved: [], freshness: 'unknown', text: `Flow concept "${concept.id}" needs the precise tier, which is unavailable here.` };
+  }
+  const fr = await resolveFlow(store, programStore, root, { symbol: concept.flow!.entry, pathGlob: concept.flow!.pathGlob });
+  if (!fr.ok) return { resolved: [], freshness: 'error', text: `Flow concept "${concept.id}": ${fr.text}` };
+
+  const anchors: Anchor[] = fr.members.map((m) => ({
+    key: m.symbol === '(anonymous)' ? `${m.file}:${m.line}` : `${m.file}#${m.symbol}`,
+    hash: 'present',
+  }));
+  const baseline = baselineFor(loadAnchorStore(root), concept.id);
+  let freshness: string;
+  let drift: DriftReport | undefined;
+  if (!baseline || args.reaccept) {
+    captureBaseline(root, concept.id, anchors, new Date().toISOString());
+    freshness = baseline ? 'fresh (baseline re-captured)' : 'fresh (baseline captured)';
+  } else {
+    drift = compareDrift(anchors, baseline);
+    freshness = drift.status === 'drifted' ? 'DRIFTED' : 'fresh';
+  }
+
+  const src = concept.source === 'agent' ? ' [agent-asserted]' : '';
+  const lines = [`Flow concept \`${concept.id}\`${src} — ${concept.title} (${fr.members.length} functions, ${freshness}):`];
+  if (concept.description) lines.push(`  ${concept.description}`);
+  if (concept.note) lines.push(`  note: ${concept.note}`);
+  lines.push('', fr.text);
+  if (drift && drift.status === 'drifted') {
+    lines.push('', `  ⚠ FLOW DRIFT vs baseline: ${drift.added.length} entered, ${drift.removed.length} left the flow.`);
+    for (const k of drift.added.slice(0, 8)) lines.push(`    + ${k}`);
+    for (const k of drift.removed.slice(0, 8)) lines.push(`    - ${k}`);
+    lines.push('  If this change is correct, re-run arch_query with reaccept:true to update the baseline.');
+  }
+  return { resolved: [], freshness, drift, text: lines.join('\n') };
 }
 
 export function formatConcept(

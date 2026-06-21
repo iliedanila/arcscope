@@ -252,7 +252,7 @@ export async function serve(root: string): Promise<void> {
     async (args) => {
       void counter.record('arch_query', args);
       try {
-        const { text } = await runArchQuery(store, root, args);
+        const { text } = await runArchQuery(store, root, args, programStore);
         return { content: [{ type: 'text', text }] };
       } catch (err) {
         logError('arch_query failed:', err);

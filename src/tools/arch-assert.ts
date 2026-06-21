@@ -15,10 +15,19 @@ export const archAssertInputShape = {
   locators: z
     .array(locatorSchema)
     .min(1)
+    .optional()
     .describe(
       'The binding: locators that resolve to the concept members LIVE (so new matches appear automatically). ' +
         'Each is { kind: "symbol", query } | { kind: "path", glob } | { kind: "import", of }, optional "in" scope. ' +
-        'Pin a known scattered member with a path locator.',
+        'Pin a known scattered member with a path locator. Omit when recording a `flow` concept.',
+    ),
+  flow: z
+    .object({ entry: z.string().min(1), pathGlob: z.string().optional() })
+    .optional()
+    .describe(
+      'Record a FLOW concept instead of locators: its entry-point function/method. The flow is recomputed LIVE ' +
+        '(precise tier: the method-resolved call closure + edge cases) on every arch_query, with drift on its ' +
+        'membership. Use after reviewing a flow with the flow tool, to persist it for a later session.',
     ),
   must: z
     .object({ title: z.string().optional(), locators: z.array(locatorSchema).min(1) })
@@ -34,12 +43,16 @@ export const archAssertInputShape = {
 // binding + invariant, re-verified on every read (never a bare fact), so a later
 // session inherits it and arcscope keeps it honest against live code.
 export async function runArchAssert(root: string, args: AssertionInput): Promise<{ text: string }> {
+  if (!args.flow && !(args.locators && args.locators.length > 0)) {
+    return { text: `arch_assert needs either "locators" (a binding) or a "flow" entry — concept \`${args.id}\` had neither.` };
+  }
   writeAssertion(root, args);
+  const kind = args.flow ? `flow from \`${args.flow.entry}\`` : 'binding';
   const rule = args.must ? ` with invariant "${args.must.title ?? 'must'}"` : '';
   return {
     text:
-      `Recorded assertion \`${args.id}\`${rule} to .arcscope/assertions.yaml. ` +
-      `It resolves live and is re-checked on every arch_query — a later session inherits it. ` +
-      `Run arch_query ${args.id} to see its current members and conformance.`,
+      `Recorded \`${args.id}\` (${kind})${rule} to .arcscope/assertions.yaml. ` +
+      `It is recomputed live and re-checked on every arch_query — a later session inherits it. ` +
+      `Run arch_query ${args.id} to see it.`,
   };
 }

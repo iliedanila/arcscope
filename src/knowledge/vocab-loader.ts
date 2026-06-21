@@ -50,12 +50,15 @@ function parseConcept(id: string, value: unknown): Concept {
     description: typeof value['description'] === 'string' ? value['description'] : undefined,
     note: typeof value['note'] === 'string' ? value['note'] : undefined,
   };
-  if (Array.isArray(stages)) {
+  const flow = value['flow'];
+  if (isRecord(flow) && typeof flow['entry'] === 'string') {
+    concept.flow = { entry: flow['entry'], pathGlob: typeof flow['pathGlob'] === 'string' ? flow['pathGlob'] : undefined };
+  } else if (Array.isArray(stages)) {
     concept.stages = stages.map((s, i) => parseStage(id, i, s));
   } else if (Array.isArray(locators)) {
     concept.locators = locators.map((l, i) => parseLocator(`${id}.locators[${i}]`, l));
   } else {
-    throw new Error(`concept "${id}" must have a "locators" or "stages" list`);
+    throw new Error(`concept "${id}" must have a "locators" or "stages" list, or a "flow" entry`);
   }
   if (value['must'] !== undefined) concept.must = parseInvariant(id, value['must']);
   return concept;
