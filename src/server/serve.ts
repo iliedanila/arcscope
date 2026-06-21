@@ -11,6 +11,7 @@ import { runDepGraph, depGraphInputShape } from '../tools/dep-graph.js';
 import { runArchList } from '../tools/arch-list.js';
 import { runArchQuery, archQueryInputShape } from '../tools/arch-query.js';
 import { runArchAssert, archAssertInputShape } from '../tools/arch-assert.js';
+import { runArchCandidates, archCandidatesInputShape } from '../tools/arch-candidates.js';
 import { log, logError } from '../log.js';
 
 // Read from package.json (shipped in the tarball) so it never drifts from the
@@ -52,6 +53,10 @@ const INSTRUCTIONS = [
   "so durable architecture knowledge accrues across sessions without going stale. Use it when you've established",
   'a cross-cutting concept or rule the code structure does not name on its own.',
   '',
+  'Use arch_candidates to find a concept\'s likely MISSING members — functions elsewhere that structurally resemble',
+  'its implementation (name-independent, so it catches hand-copied re-implementations grep/imports miss). Use it',
+  'when a concept might be incomplete (the "fixed it twice" risk); it returns suspects to confirm and pin via arch_assert.',
+  '',
   "Every result is labeled with a precision tier so you can calibrate trust (currently",
   "'tree-sitter': structural and high-signal, but not compiler-exact).",
 ].join('\n');
@@ -78,6 +83,15 @@ const ARCH_ASSERT_DESCRIPTION = [
   'resolve to the members live — symbol/path/import; pin a scattered member with a path locator) plus an optional',
   'invariant (a "must" rule every member must satisfy). arcscope stores it as a re-checked assertion, never a bare',
   'fact: it re-resolves and re-verifies against current code on every arch_query, so it cannot silently rot.',
+].join(' ');
+
+const ARCH_CANDIDATES_DESCRIPTION = [
+  'Find likely UNPINNED members of a concept: functions elsewhere that structurally resemble its implementation',
+  '(an AST-shape match that is NAME-INDEPENDENT — it catches a hand-copied re-implementation even when every symbol',
+  'is renamed and it shares no import or path). Use after arch_query when you suspect a concept misses a scattered',
+  'member (the case that causes "fixed it twice" bugs), or before adding a new one. Returns ranked SUSPECTS (the',
+  "'structural-similarity' tier is heuristic — confirm each, then pin the real ones with arch_assert). If the",
+  'concept has an invariant, candidates that would violate it are flagged — those are the dangerous ones.',
 ].join(' ');
 
 const DEP_GRAPH_DESCRIPTION = [
@@ -232,6 +246,24 @@ export async function serve(root: string): Promise<void> {
         logError('arch_assert failed:', err);
         return {
           content: [{ type: 'text', text: `arch_assert error: ${err instanceof Error ? err.message : String(err)}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'arch_candidates',
+    { title: 'Find concept re-implementations', description: ARCH_CANDIDATES_DESCRIPTION, inputSchema: archCandidatesInputShape },
+    async (args) => {
+      void counter.record('arch_candidates', args);
+      try {
+        const { text } = await runArchCandidates(store, root, args);
+        return { content: [{ type: 'text', text }] };
+      } catch (err) {
+        logError('arch_candidates failed:', err);
+        return {
+          content: [{ type: 'text', text: `arch_candidates error: ${err instanceof Error ? err.message : String(err)}` }],
           isError: true,
         };
       }

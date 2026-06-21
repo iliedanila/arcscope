@@ -3,9 +3,18 @@ import { extname, relative, sep } from 'node:path';
 import { discoverFiles } from './discover.js';
 import { extractDefs } from './extract.js';
 import { extractImports } from './imports.js';
+import { fingerprintTree } from './clone-detect.js';
+import type { FunctionFingerprint } from './clone-detect.js';
 import type { GrammarRegistry } from './grammar-registry.js';
 import { matchGlob } from './glob.js';
 import type { DefRecord, FileEntry, ImportEdge } from './types.js';
+
+// A file's functions with their structural fingerprints (for re-implementation
+// discovery). Computed in the same parse pass as defs/imports.
+export interface FileFingerprints {
+  file: string; // relative, posix
+  fns: FunctionFingerprint[];
+}
 
 export interface SyncStats {
   fileCount: number;
@@ -25,6 +34,7 @@ export class IndexStore {
   private readonly defs = new Map<string, DefRecord[]>();
   private readonly files = new Map<string, FileEntry>(); // absolute path -> entry
   private readonly edges = new Map<string, ImportEdge[]>(); // absolute path -> import/re-export edges
+  private readonly fingerprints = new Map<string, FunctionFingerprint[]>(); // absolute path -> function fingerprints
 
   constructor(
     private readonly root: string,
@@ -58,6 +68,13 @@ export class IndexStore {
   allEdges(): ImportEdge[] {
     const out: ImportEdge[] = [];
     for (const arr of this.edges.values()) out.push(...arr);
+    return out;
+  }
+
+  // Every file's function fingerprints (used by re-implementation discovery).
+  allFingerprints(): FileFingerprints[] {
+    const out: FileFingerprints[] = [];
+    for (const [abs, fns] of this.fingerprints) out.push({ file: this.relPath(abs), fns });
     return out;
   }
 
@@ -160,6 +177,7 @@ export class IndexStore {
     try {
       const records = extractDefs(grammar.query, rel, tree);
       const fileEdges = extractImports(rel, tree);
+      const fileFps = fingerprintTree(tree);
       const symbols = new Set<string>();
       for (const r of records) {
         let arr = this.defs.get(r.symbol);
@@ -171,6 +189,7 @@ export class IndexStore {
         symbols.add(r.symbol);
       }
       if (fileEdges.length > 0) this.edges.set(abs, fileEdges);
+      if (fileFps.length > 0) this.fingerprints.set(abs, fileFps);
       this.files.set(abs, { mtimeMs, size, symbols: [...symbols] });
     } finally {
       tree.delete();
@@ -189,6 +208,7 @@ export class IndexStore {
       else this.defs.delete(sym);
     }
     this.edges.delete(abs);
+    this.fingerprints.delete(abs);
     this.files.delete(abs);
   }
 

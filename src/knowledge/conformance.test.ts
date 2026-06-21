@@ -50,3 +50,20 @@ test('checkConformance partitions members into conforming and violating by the i
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('checkConformance degrades (error, no throw) when the invariant locator is malformed', async () => {
+  const { store, dir } = await storeOver({ 'a.ts': "import { c } from '@lib/clone';\nexport const a = 1;\n" });
+  try {
+    const concept: Concept = {
+      id: 'c',
+      title: 'c',
+      locators: [{ kind: 'import', of: '@lib/clone' }],
+      must: { title: 'bad', locators: [{ kind: 'symbol', query: 'noSpaceHere' }] }, // invalid query
+    };
+    const report = checkConformance(store, concept, resolveConcept(store, concept));
+    assert.ok(report?.error);
+    assert.deepEqual(report?.violations, []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
