@@ -1,6 +1,6 @@
 # arcscope v2 — Agent-authored, continuously-verified architecture knowledge
 
-> Status: **proposed** (proof slice in progress). Supersedes the v1 thesis where noted.
+> Status: **implemented** — proof slice + structural discovery layer merged to `main`. Supersedes the v1 thesis where noted.
 > v1 source of truth remains [arcscope-spec.html](arcscope-spec.html); this document records the v2 pivot and the reasoning behind it.
 
 ## 1. Why (the motivating failure)
@@ -127,6 +127,11 @@ agent-asserted knowledge is labeled as such, so trust is calibrated, not assumed
   invariant) into `assertions.yaml`. The write-back surface.
 - `arch_query` *(extended)* — when a concept has a `must`, the live result now includes a
   **conformance report** (members, conforming count, violations) alongside drift.
+- `arch_candidates` *(new, discovery)* — finds a concept's likely **unpinned** members by
+  structural AST-shape similarity (name-independent — it catches a renamed re-implementation
+  that shares no name, import, or path). Returns ranked **suspects** (a `structural-similarity`
+  precision tier — heuristic); confirm and pin the real ones via `arch_assert`. Suspects that
+  would violate the concept's invariant are flagged.
 - `arch_list`, `find_def`, `find_refs`, `dep_graph` — unchanged.
 
 ## 7. Governance of the poisoning risk
@@ -136,11 +141,14 @@ agent-asserted knowledge is labeled as such, so trust is calibrated, not assumed
 - Provenance is explicit (`source: agent`) so a reader knows what was machine-asserted.
 - `assertions.yaml` is a committed, reviewable artifact: review checks the *binding and
   rule* (verifiable), not prose claims.
-- Residual, stated honestly: a brand-new hand-mirror sharing no signal is still not
-  *auto-discovered* — someone (a session that touches it) must pin it. Knowledge accretes
-  as the codebase is worked on; it is never provably complete. A future **candidate smell
-  detector** ("functions that look like clones but aren't members") narrows this by
-  turning unknown-unknowns into surfaced questions — deferred past the proof slice.
+- Residual, stated honestly: a re-implementation is never *auto-confirmed* — a session that
+  touches it must pin it, and knowledge accretes as the codebase is worked on rather than
+  being provably complete. **`arch_candidates`** (§6) narrows the gap: it surfaces structural
+  re-implementations (AST shape, name-independent) as suspects to confirm — turning
+  unknown-unknowns into surfaced questions. (A cheaper name-overlap detector was measured
+  against the dogfood and rejected — 75% false positives, and it missed the real orphan.) It
+  stays heuristic: a re-implementation that copied only part of the logic, or rewrote its
+  structure, can fall below threshold.
 
 ## 8. Proof slice (what we build first, and the kill-criterion)
 
@@ -169,7 +177,8 @@ prose) that never ran cleanly in-session.
 - The precise structural tier (SCIP-style precomputed index; recommended over a live LSP
   for determinism + cacheability).
 - Incremental persistence of the structural index itself (today: in-memory, lazy
-  re-index; persist when scale justifies it).
-- The candidate smell detector (§7).
+  re-index; persist when scale justifies it) — including caching the structural fingerprints
+  across runs.
 - Symbol-reference invariants beyond import-membership (e.g. "calls X" via ref-scan) once
   the import-based form is proven.
+- Cross-language structural matching (fingerprints currently compare within a single grammar).
